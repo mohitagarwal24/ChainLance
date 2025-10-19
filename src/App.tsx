@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { DataProvider } from './contexts/DataContext';
 import { WalletProvider } from './contexts/WalletContext';
 import { Header } from './components/Layout/Header';
 import { HomePage } from './pages/HomePage';
@@ -36,10 +37,10 @@ function App() {
         return <JobsPage onNavigate={handleNavigate} />;
       case 'messages':
         return (
-          <div className="min-h-screen bg-gray-50 py-16">
+          <div className="min-h-screen py-16">
             <div className="max-w-7xl mx-auto px-4 text-center">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Messages</h1>
-              <p className="text-gray-600">
+              <h1 className="text-3xl font-bold text-white mb-4">Messages</h1>
+              <p className="text-gray-400">
                 Messaging system coming soon. Connect with clients and freelancers directly.
               </p>
             </div>
@@ -47,10 +48,10 @@ function App() {
         );
       case 'notifications':
         return (
-          <div className="min-h-screen bg-gray-50 py-16">
+          <div className="min-h-screen py-16">
             <div className="max-w-7xl mx-auto px-4 text-center">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Notifications</h1>
-              <p className="text-gray-600">
+              <h1 className="text-3xl font-bold text-white mb-4">Notifications</h1>
+              <p className="text-gray-400">
                 Stay updated with all your platform activity and contract updates.
               </p>
             </div>
@@ -58,10 +59,10 @@ function App() {
         );
       case 'settings':
         return (
-          <div className="min-h-screen bg-gray-50 py-16">
+          <div className="min-h-screen py-16">
             <div className="max-w-7xl mx-auto px-4 text-center">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Settings</h1>
-              <p className="text-gray-600">
+              <h1 className="text-3xl font-bold text-white mb-4">Settings</h1>
+              <p className="text-gray-400">
                 Manage your account preferences and notification settings.
               </p>
             </div>
@@ -73,12 +74,14 @@ function App() {
   };
 
   return (
-    <WalletProvider>
-      <div className="min-h-screen bg-gray-50">
-        <Header onNavigate={handleNavigate} currentPage={currentPage} />
-        {renderPage()}
-      </div>
-    </WalletProvider>
+    <DataProvider>
+      <WalletProvider>
+        <div className="min-h-screen">
+          <Header onNavigate={handleNavigate} currentPage={currentPage} />
+          {renderPage()}
+        </div>
+      </WalletProvider>
+    </DataProvider>
   );
 }
 

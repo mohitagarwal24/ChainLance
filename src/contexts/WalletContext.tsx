@@ -1,12 +1,15 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { createContext, useContext, useState, useEffect } from 'react';
+import { useData, Profile } from './DataContext';
 
 interface WalletContextType {
   walletAddress: string | null;
   isConnecting: boolean;
-  userProfile: any | null;
+  userProfile: Profile | null;
+  availableAccounts: string[];
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
+  switchAccount: (address: string) => Promise<void>;
+  refreshAccounts: () => Promise<void>;
   updateProfile: (updates: any) => Promise<void>;
 }
 
@@ -23,25 +26,61 @@ export const useWallet = () => {
 export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [userProfile, setUserProfile] = useState<Profile | null>(null);
+  const [availableAccounts, setAvailableAccounts] = useState<string[]>([]);
+  const { getProfile, createProfile, updateProfile: updateProfileData } = useData();
 
   useEffect(() => {
     const savedAddress = localStorage.getItem('walletAddress');
     if (savedAddress) {
       setWalletAddress(savedAddress);
       loadUserProfile(savedAddress);
+      refreshAccounts();
     }
   }, []);
 
   const loadUserProfile = async (address: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('wallet_address', address)
-      .maybeSingle();
+    const profile = getProfile(address);
+    if (profile) {
+      setUserProfile(profile);
+    }
+  };
 
-    if (data) {
-      setUserProfile(data);
+  const refreshAccounts = async () => {
+    if (typeof window.ethereum !== 'undefined') {
+      try {
+        const accounts = await window.ethereum.request({
+          method: 'eth_accounts',
+        });
+        setAvailableAccounts(accounts);
+      } catch (error) {
+        console.error('Error refreshing accounts:', error);
+      }
+    }
+  };
+
+  const switchAccount = async (address: string) => {
+    if (!availableAccounts.includes(address)) {
+      console.error('Address not found in available accounts');
+      return;
+    }
+
+    try {
+      setWalletAddress(address);
+      localStorage.setItem('walletAddress', address);
+
+      let profile = getProfile(address);
+
+      if (!profile) {
+        profile = await createProfile({
+          wallet_address: address,
+          role: 'both',
+        });
+      }
+
+      setUserProfile(profile);
+    } catch (error) {
+      console.error('Error switching account:', error);
     }
   };
 
@@ -57,26 +96,15 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const address = accounts[0];
           setWalletAddress(address);
           localStorage.setItem('walletAddress', address);
+          setAvailableAccounts(accounts);
 
-          let { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('wallet_address', address)
-            .maybeSingle();
+          let profile = getProfile(address);
 
           if (!profile) {
-            const { data: newProfile, error } = await supabase
-              .from('profiles')
-              .insert({
-                wallet_address: address,
-                role: 'both',
-              })
-              .select()
-              .single();
-
-            if (!error && newProfile) {
-              profile = newProfile;
-            }
+            profile = await createProfile({
+              wallet_address: address,
+              role: 'both',
+            });
           }
 
           setUserProfile(profile);
@@ -94,21 +122,16 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const disconnectWallet = () => {
     setWalletAddress(null);
     setUserProfile(null);
+    setAvailableAccounts([]);
     localStorage.removeItem('walletAddress');
   };
 
   const updateProfile = async (updates: any) => {
     if (!walletAddress) return;
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('wallet_address', walletAddress)
-      .select()
-      .single();
-
-    if (!error && data) {
-      setUserProfile(data);
+    const updatedProfile = await updateProfileData(walletAddress, updates);
+    if (updatedProfile) {
+      setUserProfile(updatedProfile);
     }
   };
 
@@ -118,8 +141,11 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         walletAddress,
         isConnecting,
         userProfile,
+        availableAccounts,
         connectWallet,
         disconnectWallet,
+        switchAccount,
+        refreshAccounts,
         updateProfile,
       }}
     >

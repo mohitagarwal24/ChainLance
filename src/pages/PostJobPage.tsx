@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Plus, X, DollarSign, Calendar, Award } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { useState } from 'react';
+import { ArrowLeft, Plus, X, DollarSign } from 'lucide-react';
+import { useData } from '../contexts/DataContext';
 import { useWallet } from '../contexts/WalletContext';
 
 interface PostJobPageProps {
@@ -9,18 +9,19 @@ interface PostJobPageProps {
 
 export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
   const { walletAddress } = useWallet();
+  const { createJob } = useData();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
+    title: 'Build a DeFi Dashboard with Real-time Analytics',
+    description: 'Looking for an experienced React developer to build a comprehensive DeFi dashboard that displays portfolio analytics, yield farming opportunities, and real-time market data. The project includes user authentication, data visualization charts, and smart contract interactions.',
     category: 'Web Development',
-    required_skills: [] as string[],
-    budget: '',
-    contract_type: 'fixed',
-    experience_level: 'intermediate',
-    project_duration: '',
-    deadline: '',
-    number_of_milestones: 1,
+    required_skills: ['React', 'TypeScript', 'Web3', 'DeFi', 'TailwindCSS'] as string[],
+    budget: '5000',
+    contract_type: 'milestone',
+    experience_level: 'expert',
+    project_duration: '6-8 weeks',
+    deadline: '2024-12-31',
+    number_of_milestones: 4,
   });
   const [skillInput, setSkillInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -53,51 +54,47 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
 
     const escrowDeposit = parseFloat(formData.budget) * 0.15;
 
-    const { data, error } = await supabase
-      .from('jobs')
-      .insert({
+    try {
+      await createJob({
         client_wallet: walletAddress,
         title: formData.title,
         description: formData.description,
         category: formData.category,
         required_skills: formData.required_skills,
         budget: parseFloat(formData.budget),
-        contract_type: formData.contract_type,
-        experience_level: formData.experience_level,
+        contract_type: formData.contract_type as 'fixed' | 'hourly' | 'milestone',
+        experience_level: formData.experience_level as 'beginner' | 'intermediate' | 'expert',
         project_duration: formData.project_duration,
         deadline: formData.deadline || null,
         number_of_milestones: formData.number_of_milestones,
         escrow_deposit: escrowDeposit,
         status: 'open',
-      })
-      .select()
-      .single();
+      });
 
-    setSubmitting(false);
-
-    if (error) {
-      alert('Error posting job: ' + error.message);
-    } else {
       alert('Job posted successfully! In production, you would now deposit the escrow to the smart contract.');
       onNavigate('my-jobs');
+    } catch (error) {
+      alert('Error posting job');
     }
+
+    setSubmitting(false);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <button
           onClick={() => onNavigate('home')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+          className="flex items-center gap-2 text-gray-400 hover:text-white mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
           Back
         </button>
 
-        <div className="bg-white rounded-lg shadow-sm p-8">
+        <div className="card p-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Post a Job</h1>
-            <p className="text-gray-600">
+            <h1 className="text-3xl font-bold text-white mb-2">Post a Job</h1>
+            <p className="text-gray-400">
               Create a job posting with smart contract escrow protection
             </p>
           </div>
@@ -129,7 +126,7 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
             {step === 1 && (
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Job Title *
                   </label>
                   <input
@@ -138,12 +135,12 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     placeholder="e.g. Build a React-based Dashboard with Web3 Integration"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="input w-full"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Description *
                   </label>
                   <textarea
@@ -152,19 +149,19 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={6}
                     placeholder="Describe your project in detail, including requirements, deliverables, and expectations..."
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="input w-full resize-none"
                   />
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Category *
                     </label>
                     <select
                       value={formData.category}
                       onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="input w-full"
                     >
                       <option value="Web Development">Web Development</option>
                       <option value="Mobile Development">Mobile Development</option>
@@ -178,13 +175,13 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Experience Level *
                     </label>
                     <select
                       value={formData.experience_level}
                       onChange={(e) => setFormData({ ...formData, experience_level: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="input w-full"
                     >
                       <option value="beginner">Beginner</option>
                       <option value="intermediate">Intermediate</option>
@@ -194,7 +191,7 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Required Skills *
                   </label>
                   <div className="flex gap-2 mb-2">
@@ -209,12 +206,12 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                         }
                       }}
                       placeholder="Add a skill and press Enter"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="input flex-1"
                     />
                     <button
                       type="button"
                       onClick={handleAddSkill}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      className="btn-primary px-4 py-2"
                     >
                       <Plus className="w-5 h-5" />
                     </button>
@@ -223,7 +220,7 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                     {formData.required_skills.map((skill, idx) => (
                       <span
                         key={idx}
-                        className="flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full"
+                        className="badge badge-primary flex items-center gap-2"
                       >
                         {skill}
                         <button
@@ -253,7 +250,7 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
             {step === 2 && (
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Contract Type *
                   </label>
                   <div className="grid md:grid-cols-3 gap-4">
@@ -264,12 +261,12 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                         onClick={() => setFormData({ ...formData, contract_type: type })}
                         className={`p-4 border-2 rounded-lg text-left transition-all ${
                           formData.contract_type === type
-                            ? 'border-blue-600 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-blue-500 bg-blue-900/20 text-white'
+                            : 'border-gray-700 hover:border-gray-600 bg-gray-800 text-gray-300'
                         }`}
                       >
                         <div className="font-semibold capitalize mb-1">{type} Price</div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-400">
                           {type === 'fixed' && 'One-time payment'}
                           {type === 'hourly' && 'Pay per hour worked'}
                           {type === 'milestone' && 'Pay per milestone'}
@@ -280,7 +277,7 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Budget (PYUSD) *
                   </label>
                   <div className="relative">
@@ -293,12 +290,12 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                       value={formData.budget}
                       onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
                       placeholder="5000"
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="input w-full pl-10 pr-4"
                     />
                   </div>
                   {formData.budget && (
-                    <div className="mt-2 p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-800">
+                    <div className="mt-2 p-3 bg-blue-900/20 border border-blue-800 rounded-lg">
+                      <p className="text-sm text-blue-300">
                         <strong>Escrow Deposit Required:</strong> ${(parseFloat(formData.budget) * 0.15).toFixed(2)} PYUSD (15% of budget)
                       </p>
                       <p className="text-xs text-blue-600 mt-1">
@@ -310,7 +307,7 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Project Duration
                     </label>
                     <input
@@ -318,26 +315,26 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                       value={formData.project_duration}
                       onChange={(e) => setFormData({ ...formData, project_duration: e.target.value })}
                       placeholder="e.g. 2-4 weeks"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="input w-full"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Deadline
                     </label>
                     <input
                       type="date"
                       value={formData.deadline}
                       onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="input w-full"
                     />
                   </div>
                 </div>
 
                 {formData.contract_type === 'milestone' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
                       Number of Milestones
                     </label>
                     <input
@@ -346,7 +343,7 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                       max="10"
                       value={formData.number_of_milestones}
                       onChange={(e) => setFormData({ ...formData, number_of_milestones: parseInt(e.target.value) })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="input w-full"
                     />
                   </div>
                 )}
@@ -355,14 +352,14 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                   <button
                     type="button"
                     onClick={() => setStep(1)}
-                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                    className="btn-secondary"
                   >
                     Back
                   </button>
                   <button
                     type="button"
                     onClick={() => setStep(3)}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                    className="btn-primary"
                   >
                     Continue
                   </button>
@@ -372,36 +369,39 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
 
             {step === 3 && (
               <div className="space-y-6">
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Review Your Job</h3>
+                <div className="bg-gray-800 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">Review Your Job</h3>
 
                   <div className="space-y-4">
                     <div>
-                      <div className="text-sm text-gray-600 mb-1">Title</div>
-                      <div className="font-medium text-gray-900">{formData.title}</div>
+                      <div className="text-sm text-gray-400 mb-1">Title</div>
+                      <div className="font-medium text-white">{formData.title}</div>
                     </div>
 
                     <div>
-                      <div className="text-sm text-gray-600 mb-1">Description</div>
-                      <div className="text-gray-900">{formData.description}</div>
+                      <div className="text-sm text-gray-400 mb-1">Description</div>
+                      <div className="text-gray-300">{formData.description}</div>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <div className="text-sm text-gray-600 mb-1">Category</div>
-                        <div className="font-medium text-gray-900">{formData.category}</div>
+                        <div className="text-sm text-gray-400 mb-1">Category</div>
+                        <div className="font-medium text-white">{formData.category}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-600 mb-1">Experience Level</div>
-                        <div className="font-medium text-gray-900 capitalize">{formData.experience_level}</div>
+                        <div className="text-sm text-gray-400 mb-1">Experience Level</div>
+                        <div className="font-medium text-white capitalize">{formData.experience_level}</div>
                       </div>
                     </div>
 
                     <div>
-                      <div className="text-sm text-gray-600 mb-1">Required Skills</div>
+                      <div className="text-sm text-gray-400 mb-1">Required Skills</div>
                       <div className="flex flex-wrap gap-2">
                         {formData.required_skills.map((skill, idx) => (
-                          <span key={idx} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm">
+                          <span
+                            key={idx}
+                            className="badge badge-primary flex items-center gap-1"
+                          >
                             {skill}
                           </span>
                         ))}
@@ -410,21 +410,21 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
-                        <div className="text-sm text-gray-600 mb-1">Contract Type</div>
-                        <div className="font-medium text-gray-900 capitalize">{formData.contract_type}</div>
+                        <div className="text-sm text-gray-400 mb-1">Contract Type</div>
+                        <div className="font-medium text-white capitalize">{formData.contract_type}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-600 mb-1">Budget</div>
-                        <div className="font-medium text-gray-900">${parseFloat(formData.budget).toLocaleString()} PYUSD</div>
+                        <div className="text-sm text-gray-400 mb-1">Budget</div>
+                        <div className="font-medium text-white">${parseFloat(formData.budget).toLocaleString()} PYUSD</div>
                       </div>
                     </div>
 
-                    <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-800">
                       <div className="flex items-start gap-3">
-                        <DollarSign className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <DollarSign className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                         <div>
-                          <div className="font-semibold text-blue-900 mb-1">Escrow Deposit Required</div>
-                          <div className="text-sm text-blue-700">
+                          <div className="font-semibold text-blue-300 mb-1">Escrow Deposit Required</div>
+                          <div className="text-sm text-blue-400">
                             ${(parseFloat(formData.budget) * 0.15).toFixed(2)} PYUSD will be locked in escrow when you post this job.
                             This is fully refundable if you cancel before accepting any bids.
                           </div>
@@ -434,9 +434,9 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                   </div>
                 </div>
 
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-yellow-900 mb-2">Before You Post</h4>
-                  <ul className="text-sm text-yellow-800 space-y-1">
+                <div className="bg-yellow-900/20 border border-yellow-800 rounded-lg p-4">
+                  <h4 className="font-semibold text-yellow-300 mb-2">Before You Post</h4>
+                  <ul className="text-sm text-yellow-400 space-y-1">
                     <li>✓ Make sure your wallet has sufficient PYUSD for the escrow deposit</li>
                     <li>✓ You'll need to approve the transaction in your wallet</li>
                     <li>✓ Job will be visible to all freelancers once posted</li>
@@ -448,14 +448,14 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                   <button
                     type="button"
                     onClick={() => setStep(2)}
-                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                    className="btn-secondary"
                   >
                     Back
                   </button>
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="px-8 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? 'Posting...' : 'Post Job & Pay Escrow'}
                   </button>

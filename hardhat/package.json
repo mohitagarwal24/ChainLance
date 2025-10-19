@@ -1,0 +1,26 @@
+{
+  "name": "chainlance-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for ChainLance decentralized freelancing platform",
+  "type": "module",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat run scripts/deploy.ts",
+    "node": "hardhat node"
+  },
+  "keywords": ["blockchain", "freelancing", "smart-contracts", "defi"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "hardhat": "^3.0.7",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.0",
+    "@nomicfoundation/hardhat-ignition": "^3.0.3",
+    "@types/node": "^22.8.5",
+    "typescript": "~5.8.0",
+    "viem": "^2.30.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0"
+  }
+}
