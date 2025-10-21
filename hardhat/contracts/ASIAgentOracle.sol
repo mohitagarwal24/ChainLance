@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title ASIAgentOracle
@@ -10,6 +10,10 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * Handles off-chain computation results and agent communication
  */
 contract ASIAgentOracle is Ownable, ReentrancyGuard {
+    
+    constructor() Ownable(msg.sender) {
+        // Initialize oracle
+    }
     
     struct AgentRequest {
         uint256 id;

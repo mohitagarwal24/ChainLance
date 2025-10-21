@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { ArrowLeft, Plus, X, DollarSign } from 'lucide-react';
-import { useData } from '../contexts/DataContext';
+import { useContractData } from '../contexts/ContractDataContext';
 import { useWallet } from '../contexts/WalletContext';
+import { NetworkStatus } from '../components/NetworkStatus';
 
 interface PostJobPageProps {
   onNavigate: (page: string) => void;
@@ -9,7 +10,7 @@ interface PostJobPageProps {
 
 export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
   const { walletAddress } = useWallet();
-  const { createJob } = useData();
+  const { createJob, getPYUSDBalance, requestPYUSDFromFaucet } = useContractData();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     title: 'Build a DeFi Dashboard with Real-time Analytics',
@@ -25,6 +26,43 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
   });
   const [skillInput, setSkillInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [pyusdBalance, setPyusdBalance] = useState<number>(0);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+
+  // Load PYUSD balance when wallet is connected
+  const loadPYUSDBalance = async () => {
+    if (!walletAddress) return;
+    setLoadingBalance(true);
+    try {
+      const balance = await getPYUSDBalance();
+      setPyusdBalance(balance);
+    } catch (error) {
+      console.error('Error loading PYUSD balance:', error);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
+
+  // Request PYUSD from faucet for testing
+  const handleRequestPYUSD = async () => {
+    if (!walletAddress) return;
+    try {
+      await requestPYUSDFromFaucet();
+      // Reload balance after faucet request
+      setTimeout(loadPYUSDBalance, 2000);
+      alert('PYUSD requested from faucet! Please wait a moment for the transaction to confirm.');
+    } catch (error) {
+      console.error('Error requesting PYUSD:', error);
+      alert('Error requesting PYUSD from faucet');
+    }
+  };
+
+  // Load balance when wallet address changes
+  React.useEffect(() => {
+    if (walletAddress) {
+      loadPYUSDBalance();
+    }
+  }, [walletAddress]);
 
   const handleAddSkill = () => {
     if (skillInput.trim() && !formData.required_skills.includes(skillInput.trim())) {
@@ -50,13 +88,19 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
       return;
     }
 
-    setSubmitting(true);
-
     const escrowDeposit = parseFloat(formData.budget) * 0.15;
+    
+    // Check if user has sufficient PYUSD balance
+    if (pyusdBalance < escrowDeposit) {
+      const needMore = escrowDeposit - pyusdBalance;
+      alert(`Insufficient PYUSD balance. You need ${needMore.toFixed(2)} more PYUSD for the escrow deposit. Use the faucet to get test tokens.`);
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
       await createJob({
-        client_wallet: walletAddress,
         title: formData.title,
         description: formData.description,
         category: formData.category,
@@ -67,14 +111,21 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
         project_duration: formData.project_duration,
         deadline: formData.deadline || null,
         number_of_milestones: formData.number_of_milestones,
-        escrow_deposit: escrowDeposit,
-        status: 'open',
       });
 
-      alert('Job posted successfully! In production, you would now deposit the escrow to the smart contract.');
+      alert('Job posted successfully! The escrow deposit has been locked in the smart contract.');
+      // Reload balance after successful job posting
+      loadPYUSDBalance();
       onNavigate('my-jobs');
-    } catch (error) {
-      alert('Error posting job');
+    } catch (error: any) {
+      console.error('Error posting job:', error);
+      if (error.message?.includes('insufficient funds')) {
+        alert('Transaction failed: Insufficient funds for gas or token approval.');
+      } else if (error.message?.includes('user rejected')) {
+        alert('Transaction was rejected by user.');
+      } else {
+        alert('Error posting job. Please check your wallet connection and try again.');
+      }
     }
 
     setSubmitting(false);
@@ -91,12 +142,37 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
           Back
         </button>
 
+        <NetworkStatus />
+        
         <div className="card p-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-white mb-2">Post a Job</h1>
             <p className="text-gray-400">
               Create a job posting with smart contract escrow protection
             </p>
+            
+            {/* PYUSD Balance Display */}
+            {walletAddress && (
+              <div className="mt-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-300">Your PYUSD Balance</h3>
+                    <p className="text-lg font-semibold text-white">
+                      {loadingBalance ? 'Loading...' : `${pyusdBalance.toFixed(2)} PYUSD`}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleRequestPYUSD}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Get Test PYUSD
+                  </button>
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  You need PYUSD tokens to pay escrow deposits. Use the faucet to get test tokens.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center mb-8">
@@ -294,11 +370,28 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                     />
                   </div>
                   {formData.budget && (
-                    <div className="mt-2 p-3 bg-blue-900/20 border border-blue-800 rounded-lg">
-                      <p className="text-sm text-blue-300">
+                    <div className={`mt-2 p-3 rounded-lg border ${
+                      pyusdBalance >= (parseFloat(formData.budget) * 0.15) 
+                        ? 'bg-blue-900/20 border-blue-800' 
+                        : 'bg-red-900/20 border-red-800'
+                    }`}>
+                      <p className={`text-sm ${
+                        pyusdBalance >= (parseFloat(formData.budget) * 0.15) 
+                          ? 'text-blue-300' 
+                          : 'text-red-300'
+                      }`}>
                         <strong>Escrow Deposit Required:</strong> ${(parseFloat(formData.budget) * 0.15).toFixed(2)} PYUSD (15% of budget)
                       </p>
-                      <p className="text-xs text-blue-600 mt-1">
+                      {pyusdBalance < (parseFloat(formData.budget) * 0.15) && (
+                        <p className="text-xs text-red-400 mt-1">
+                          ⚠️ Insufficient balance! You need ${((parseFloat(formData.budget) * 0.15) - pyusdBalance).toFixed(2)} more PYUSD.
+                        </p>
+                      )}
+                      <p className={`text-xs mt-1 ${
+                        pyusdBalance >= (parseFloat(formData.budget) * 0.15) 
+                          ? 'text-blue-600' 
+                          : 'text-red-600'
+                      }`}>
                         This deposit prevents spam and ensures serious job postings. Fully refundable if you cancel before accepting bids.
                       </p>
                     </div>
@@ -454,10 +547,12 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
                   </button>
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || pyusdBalance < (parseFloat(formData.budget) * 0.15)}
                     className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {submitting ? 'Posting...' : 'Post Job & Pay Escrow'}
+                    {submitting ? 'Posting...' : 
+                     pyusdBalance < (parseFloat(formData.budget) * 0.15) ? 'Insufficient PYUSD Balance' :
+                     'Post Job & Pay Escrow'}
                   </button>
                 </div>
               </div>

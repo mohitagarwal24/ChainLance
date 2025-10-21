@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract MockPYUSD is ERC20, Ownable {
     uint8 private _decimals;
 
-    constructor() ERC20("PayPal USD (Mock)", "PYUSD") {
+    constructor() ERC20("PayPal USD (Mock)", "PYUSD") Ownable(msg.sender) {
         _decimals = 6; // PYUSD uses 6 decimals like USDC
         
         // Mint initial supply for testing (1 million PYUSD)

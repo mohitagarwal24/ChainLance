@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Clock, Briefcase } from 'lucide-react';
-import { useData, Job } from '../contexts/DataContext';
+import { useContractData, EnhancedJob } from '../contexts/ContractDataContext';
+import { NetworkStatus } from '../components/NetworkStatus';
 
 
 interface JobsPageProps {
@@ -8,13 +9,13 @@ interface JobsPageProps {
 }
 
 export const JobsPage: React.FC<JobsPageProps> = ({ onNavigate }) => {
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<EnhancedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedContractType, setSelectedContractType] = useState('all');
   const [budgetRange, setBudgetRange] = useState('all');
-  const { getJobs } = useData();
+  const { getJobs, isLoading } = useContractData();
 
 
   useEffect(() => {
@@ -65,6 +66,8 @@ export const JobsPage: React.FC<JobsPageProps> = ({ onNavigate }) => {
   return (
     <div className="min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <NetworkStatus />
+        
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Find Work</h1>
           <p className="text-gray-400">

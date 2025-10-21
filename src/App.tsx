@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { DataProvider } from './contexts/DataContext';
 import { WalletProvider } from './contexts/WalletContext';
+import { Web3Provider } from './contexts/Web3Context';
+import { ContractDataProvider } from './contexts/ContractDataContext';
 import { Header } from './components/Layout/Header';
 import { HomePage } from './pages/HomePage';
 import { JobsPage } from './pages/JobsPage';
@@ -74,14 +76,18 @@ function App() {
   };
 
   return (
-    <DataProvider>
-      <WalletProvider>
-        <div className="min-h-screen">
-          <Header onNavigate={handleNavigate} currentPage={currentPage} />
-          {renderPage()}
-        </div>
-      </WalletProvider>
-    </DataProvider>
+    <Web3Provider>
+      <DataProvider>
+        <WalletProvider>
+          <ContractDataProvider>
+            <div className="min-h-screen">
+              <Header onNavigate={handleNavigate} currentPage={currentPage} />
+              {renderPage()}
+            </div>
+          </ContractDataProvider>
+        </WalletProvider>
+      </DataProvider>
+    </Web3Provider>
   );
 }
 

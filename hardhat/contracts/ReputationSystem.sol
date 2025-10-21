@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title ReputationSystem
@@ -10,6 +10,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  * Stores ratings, reviews, and calculates reputation scores
  */
 contract ReputationSystem is Ownable, ReentrancyGuard {
+    
+    constructor() Ownable(msg.sender) {
+        // Initialize with deployer as authorized contract initially
+        authorizedContracts[msg.sender] = true;
+    }
     
     struct Rating {
         uint256 id;
@@ -71,10 +76,6 @@ contract ReputationSystem is Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor() {
-        // Initialize with deployer as authorized contract initially
-        authorizedContracts[msg.sender] = true;
-    }
 
     /**
      * @dev Authorize a contract to submit ratings

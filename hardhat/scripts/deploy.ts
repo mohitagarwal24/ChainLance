@@ -1,99 +1,94 @@
-import hre from "hardhat";
-import { ethers } from "ethers";
+import { network } from "hardhat";
 import fs from "fs";
 import path from "path";
+import { parseUnits } from "viem";
+import { fileURLToPath } from "url";
 
-// For Hardhat 3.0, we need to get ethers from the artifacts
-const { artifacts, network } = hre;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 async function main() {
   console.log("🚀 Starting ChainLance deployment...");
 
-  const [deployer] = await hre.ethers.getSigners();
-  console.log("Deploying contracts with account:", deployer.address);
-  console.log("Account balance:", hre.ethers.formatEther(await hre.ethers.provider.getBalance(deployer.address)));
+  const { viem } = await network.connect() as any;
+  const [deployer] = await viem.getWalletClients();
+  console.log("Deploying contracts with account:", deployer.account.address);
+  const publicClient = await viem.getPublicClient();
+  const balance = await publicClient.getBalance({ address: deployer.account.address });
+  console.log("Account balance:", balance.toString());
 
   // Deploy MockPYUSD
   console.log("\n📄 Deploying MockPYUSD...");
-  const MockPYUSD = await hre.ethers.getContractFactory("MockPYUSD");
-  const mockPYUSD = await MockPYUSD.deploy();
-  await mockPYUSD.waitForDeployment();
-  console.log("✅ MockPYUSD deployed to:", await mockPYUSD.getAddress());
+  const mockPYUSD = await viem.deployContract("MockPYUSD");
+  console.log("✅ MockPYUSD deployed to:", mockPYUSD.address);
 
   // Deploy ReputationSystem
   console.log("\n📄 Deploying ReputationSystem...");
-  const ReputationSystem = await hre.ethers.getContractFactory("ReputationSystem");
-  const reputationSystem = await ReputationSystem.deploy();
-  await reputationSystem.waitForDeployment();
-  console.log("✅ ReputationSystem deployed to:", await reputationSystem.getAddress());
+  const reputationSystem = await viem.deployContract("ReputationSystem");
+  console.log("✅ ReputationSystem deployed to:", reputationSystem.address);
 
   // Deploy ASIAgentOracle
   console.log("\n📄 Deploying ASIAgentOracle...");
-  const ASIAgentOracle = await hre.ethers.getContractFactory("ASIAgentOracle");
-  const asiAgentOracle = await ASIAgentOracle.deploy(await mockPYUSD.getAddress());
-  await asiAgentOracle.waitForDeployment();
-  console.log("✅ ASIAgentOracle deployed to:", await asiAgentOracle.getAddress());
+  const asiAgentOracle = await viem.deployContract("ASIAgentOracle");
+  console.log("✅ ASIAgentOracle deployed to:", asiAgentOracle.address);
 
   // Deploy ASIAgentVerifier (with placeholder address first)
   console.log("\n📄 Deploying ASIAgentVerifier...");
-  const ASIAgentVerifier = await hre.ethers.getContractFactory("ASIAgentVerifier");
-  const asiAgentVerifier = await ASIAgentVerifier.deploy(hre.ethers.ZeroAddress);
-  await asiAgentVerifier.waitForDeployment();
-  console.log("✅ ASIAgentVerifier deployed to:", await asiAgentVerifier.getAddress());
+  const asiAgentVerifier = await viem.deployContract("ASIAgentVerifier", ["0x0000000000000000000000000000000000000000"]);
+  console.log("✅ ASIAgentVerifier deployed to:", asiAgentVerifier.address);
 
   // Deploy ChainLanceCore
   console.log("\n📄 Deploying ChainLanceCore...");
-  const ChainLanceCore = await hre.ethers.getContractFactory("ChainLanceCore");
-  const chainLanceCore = await ChainLanceCore.deploy(
-    await mockPYUSD.getAddress(),
-    await asiAgentVerifier.getAddress()
-  );
-  await chainLanceCore.waitForDeployment();
-  console.log("✅ ChainLanceCore deployed to:", await chainLanceCore.getAddress());
+  const chainLanceCore = await viem.deployContract("ChainLanceCore", [
+    mockPYUSD.address,
+    asiAgentVerifier.address
+  ]);
+  console.log("✅ ChainLanceCore deployed to:", chainLanceCore.address);
 
   // Update ASIAgentVerifier with ChainLanceCore address
   console.log("\n🔧 Configuring contracts...");
-  await asiAgentVerifier.updateChainLanceCore(await chainLanceCore.getAddress());
+  await asiAgentVerifier.write.updateChainLanceCore([chainLanceCore.address]);
   console.log("✅ ASIAgentVerifier configured with ChainLanceCore address");
 
   // Authorize ChainLanceCore in ReputationSystem
-  await reputationSystem.authorizeContract(await chainLanceCore.getAddress());
+  await reputationSystem.write.authorizeContract([chainLanceCore.address]);
   console.log("✅ ChainLanceCore authorized in ReputationSystem");
 
   // Mint some PYUSD for testing
   console.log("\n💰 Minting test PYUSD tokens...");
-  await mockPYUSD.mint(deployer.address, hre.ethers.parseUnits("1000000", 6)); // 1M PYUSD
+  await mockPYUSD.write.mint([deployer.account.address, parseUnits("1000000", 6)]); // 1M PYUSD
   console.log("✅ Minted 1,000,000 PYUSD to deployer");
 
   // Create deployment info
+  const chainId = await publicClient.getChainId();
+  
   const deploymentInfo = {
-    network: await hre.ethers.provider.getNetwork(),
-    deployer: deployer.address,
+    network: { chainId, name: publicClient.chain?.name || 'unknown' },
+    deployer: deployer.account.address,
     timestamp: new Date().toISOString(),
     contracts: {
       MockPYUSD: {
-        address: await mockPYUSD.getAddress(),
+        address: mockPYUSD.address,
         constructorArgs: []
       },
       ReputationSystem: {
-        address: await reputationSystem.getAddress(),
+        address: reputationSystem.address,
         constructorArgs: []
       },
       ASIAgentOracle: {
-        address: await asiAgentOracle.getAddress(),
-        constructorArgs: [await mockPYUSD.getAddress()]
+        address: asiAgentOracle.address,
+        constructorArgs: []
       },
       ASIAgentVerifier: {
-        address: await asiAgentVerifier.getAddress(),
-        constructorArgs: [await chainLanceCore.getAddress()]
+        address: asiAgentVerifier.address,
+        constructorArgs: [chainLanceCore.address]
       },
       ChainLanceCore: {
-        address: await chainLanceCore.getAddress(),
-        constructorArgs: [await mockPYUSD.getAddress(), await asiAgentVerifier.getAddress()]
+        address: chainLanceCore.address,
+        constructorArgs: [mockPYUSD.address, asiAgentVerifier.address]
       }
     },
     gasUsed: {
-      // These would be populated with actual gas usage
       total: "Calculated during deployment"
     }
   };
@@ -104,24 +99,24 @@ async function main() {
     fs.mkdirSync(deploymentsDir, { recursive: true });
   }
 
-  const networkName = (await hre.ethers.provider.getNetwork()).name;
+  const networkName = publicClient.chain?.name || 'localhost';
   const deploymentFile = path.join(deploymentsDir, `${networkName}-deployment.json`);
   fs.writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, null, 2));
 
   // Create environment file for frontend
   const envContent = `
 # ChainLance Contract Addresses - ${networkName}
-VITE_CHAINLANCE_CORE_ADDRESS=${await chainLanceCore.getAddress()}
-VITE_PYUSD_TOKEN_ADDRESS=${await mockPYUSD.getAddress()}
-VITE_REPUTATION_SYSTEM_ADDRESS=${await reputationSystem.getAddress()}
-VITE_ASI_AGENT_VERIFIER_ADDRESS=${await asiAgentVerifier.getAddress()}
-VITE_ASI_AGENT_ORACLE_ADDRESS=${await asiAgentOracle.getAddress()}
+VITE_CHAINLANCE_CORE_ADDRESS=${chainLanceCore.address}
+VITE_PYUSD_TOKEN_ADDRESS=${mockPYUSD.address}
+VITE_REPUTATION_SYSTEM_ADDRESS=${reputationSystem.address}
+VITE_ASI_AGENT_VERIFIER_ADDRESS=${asiAgentVerifier.address}
+VITE_ASI_AGENT_ORACLE_ADDRESS=${asiAgentOracle.address}
 VITE_NETWORK_NAME=${networkName}
-VITE_CHAIN_ID=${(await hre.ethers.provider.getNetwork()).chainId}
+VITE_CHAIN_ID=${chainId}
 
 # ASI Agent Configuration
-ASI_VERIFIER_CONTRACT=${await asiAgentVerifier.getAddress()}
-ORACLE_CONTRACT_ADDRESS=${await asiAgentOracle.getAddress()}
+ASI_VERIFIER_CONTRACT=${asiAgentVerifier.address}
+ORACLE_CONTRACT_ADDRESS=${asiAgentOracle.address}
 WEB3_PROVIDER=${process.env.WEB3_PROVIDER || "http://localhost:8545"}
 `;
 
@@ -131,14 +126,14 @@ WEB3_PROVIDER=${process.env.WEB3_PROVIDER || "http://localhost:8545"}
   console.log("\n📋 Deployment Summary:");
   console.log("=".repeat(50));
   console.log(`Network: ${networkName}`);
-  console.log(`Chain ID: ${(await hre.ethers.provider.getNetwork()).chainId}`);
-  console.log(`Deployer: ${deployer.address}`);
+  console.log(`Chain ID: ${chainId}`);
+  console.log(`Deployer: ${deployer.account.address}`);
   console.log("\n📍 Contract Addresses:");
-  console.log(`MockPYUSD: ${await mockPYUSD.getAddress()}`);
-  console.log(`ReputationSystem: ${await reputationSystem.getAddress()}`);
-  console.log(`ASIAgentOracle: ${await asiAgentOracle.getAddress()}`);
-  console.log(`ASIAgentVerifier: ${await asiAgentVerifier.getAddress()}`);
-  console.log(`ChainLanceCore: ${await chainLanceCore.getAddress()}`);
+  console.log(`MockPYUSD: ${mockPYUSD.address}`);
+  console.log(`ReputationSystem: ${reputationSystem.address}`);
+  console.log(`ASIAgentOracle: ${asiAgentOracle.address}`);
+  console.log(`ASIAgentVerifier: ${asiAgentVerifier.address}`);
+  console.log(`ChainLanceCore: ${chainLanceCore.address}`);
   
   console.log(`\n💾 Deployment info saved to: ${deploymentFile}`);
   console.log(`💾 Frontend env file created: ${frontendEnvFile}`);
@@ -154,11 +149,11 @@ WEB3_PROVIDER=${process.env.WEB3_PROVIDER || "http://localhost:8545"}
   // Verify contracts on Etherscan (if not local network)
   if (networkName !== "hardhat" && networkName !== "localhost") {
     console.log("\n🔍 To verify contracts on Etherscan, run:");
-    console.log(`npx hardhat verify --network ${networkName} ${await chainLanceCore.getAddress()} "${await mockPYUSD.getAddress()}" "${await asiAgentVerifier.getAddress()}"`);
-    console.log(`npx hardhat verify --network ${networkName} ${await mockPYUSD.getAddress()}`);
-    console.log(`npx hardhat verify --network ${networkName} ${await reputationSystem.getAddress()}`);
-    console.log(`npx hardhat verify --network ${networkName} ${await asiAgentOracle.getAddress()} "${await mockPYUSD.getAddress()}"`);
-    console.log(`npx hardhat verify --network ${networkName} ${await asiAgentVerifier.getAddress()} "${await chainLanceCore.getAddress()}"`);
+    console.log(`npx hardhat verify --network ${networkName} ${chainLanceCore.address} "${mockPYUSD.address}" "${asiAgentVerifier.address}"`);
+    console.log(`npx hardhat verify --network ${networkName} ${mockPYUSD.address}`);
+    console.log(`npx hardhat verify --network ${networkName} ${reputationSystem.address}`);
+    console.log(`npx hardhat verify --network ${networkName} ${asiAgentOracle.address}`);
+    console.log(`npx hardhat verify --network ${networkName} ${asiAgentVerifier.address} "${chainLanceCore.address}"`);
   }
 }
 

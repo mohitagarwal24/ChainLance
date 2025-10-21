@@ -8,7 +8,7 @@ const ChainLanceModule = buildModule("ChainLanceModule", (m) => {
   const reputationSystem = m.contract("ReputationSystem");
 
   // Deploy ASIAgentOracle
-  const asiAgentOracle = m.contract("ASIAgentOracle", [mockPYUSD]);
+  const asiAgentOracle = m.contract("ASIAgentOracle");
 
   // Deploy ASIAgentVerifier with placeholder for ChainLanceCore (will be updated)
   const asiAgentVerifier = m.contract("ASIAgentVerifier", ["0x0000000000000000000000000000000000000000"]);

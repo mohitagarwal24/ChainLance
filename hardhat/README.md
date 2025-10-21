@@ -1,30 +1,49 @@
-# Sample Hardhat 3 Beta Project (`node:test` and `viem`)
+# ChainLance Smart Contracts
 
-This project showcases a Hardhat 3 Beta project using the native Node.js test runner (`node:test`) and the `viem` library for Ethereum interactions.
+Decentralized freelancing platform with AI-powered verification using Hardhat 3.0, viem, and Hardhat Ignition for deployment.
 
-To learn more about the Hardhat 3 Beta, please visit the [Getting Started guide](https://hardhat.org/docs/getting-started#getting-started-with-hardhat-3). To share your feedback, join our [Hardhat 3 Beta](https://hardhat.org/hardhat3-beta-telegram-group) Telegram group or [open an issue](https://github.com/NomicFoundation/hardhat/issues/new) in our GitHub issue tracker.
+## 🏗️ Architecture Overview
 
-## Project Overview
+ChainLance implements a complete decentralized freelancing ecosystem with:
 
-This example project includes:
+- **Escrow-based job posting** (10-20% upfront deposit)
+- **Stake-based bidding** (10% freelancer commitment)
+- **AI-powered work verification** using ASI agents
+- **Automatic payment release** after 14-day timeout
+- **On-chain reputation system** with tamper-proof ratings
+- **PYUSD stablecoin integration** for stable payments
 
-- A simple Hardhat configuration file.
-- Foundry-compatible Solidity unit tests.
-- TypeScript integration tests using [`node:test`](nodejs.org/api/test.html), the new Node.js native test runner, and [`viem`](https://viem.sh/).
-- Examples demonstrating how to connect to different types of networks, including locally simulating OP mainnet.
+## 📦 Smart Contracts
 
-## Usage
+### Core Contracts
 
-### Running Tests
+1. **ChainLanceCore.sol** - Main platform contract
+   - Job posting with escrow deposits
+   - Bidding system with stake mechanism
+   - Milestone-based contract management
+   - Automatic payment release
 
-To run all the tests in the project, execute the following command:
+2. **ASIAgentVerifier.sol** - AI verification system
+   - Agent registration and management
+   - Verification request handling
+   - Category-specific verification templates
 
-```shell
-npx hardhat test
+3. **ReputationSystem.sol** - On-chain reputation
+   - Multi-dimensional ratings
+   - Reputation levels (Bronze, Silver, Gold, Platinum)
+   - Dispute resolution
+
+4. **ASIAgentOracle.sol** - Blockchain oracle for ASI agents
+5. **MockPYUSD.sol** - Testing token (6 decimals like real PYUSD)
+
+## 🚀 Quick Start
+
+### Prerequisites
 
 - Node.js >= 18
 - npm or yarn
 - Hardhat 3.0+
+- Git
 
 ### Installation
 
@@ -49,18 +68,42 @@ npm run test
 #### Local Network
 
 ```bash
-# Start local Hardhat network
-npm run node
-
-# Deploy contracts (in another terminal)
-npm run deploy
+# Deploy to local Hardhat network
+npm run deploy:local
 ```
 
-#### Testnet Deployment
+#### Sepolia Testnet Deployment
+
+1. **Setup Environment Variables**
 
 ```bash
-# Configure network in hardhat.config.ts
-npx hardhat run scripts/deploy.ts --network sepolia
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your credentials
+# SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_PROJECT_ID
+# SEPOLIA_PRIVATE_KEY=your_private_key_here
+```
+
+2. **Set Private Key (Secure Method)**
+
+```bash
+# Using hardhat-keystore for secure key management
+npx hardhat keystore set SEPOLIA_PRIVATE_KEY
+```
+
+3. **Deploy to Sepolia**
+
+```bash
+# Deploy all contracts using Hardhat Ignition
+npm run deploy:sepolia
+```
+
+4. **Verify Contracts (Optional)**
+
+```bash
+# Verify contracts on Etherscan
+npm run verify:sepolia
 ```
 
 ## 📋 Contract Addresses
@@ -253,14 +296,154 @@ To run the deployment to Sepolia, you need an account with funds to send the tra
 
 You can set the `SEPOLIA_PRIVATE_KEY` variable using the `hardhat-keystore` plugin or by setting it as an environment variable.
 
-To set the `SEPOLIA_PRIVATE_KEY` config variable using `hardhat-keystore`:
+## 📄 License
 
-```shell
-npx hardhat keystore set SEPOLIA_PRIVATE_KEY
+MIT License - see LICENSE file for details
+
+---
+
+**Built with Hardhat 3.0, viem, and Hardhat Ignition for modern Ethereum development** 🚀
+
+## 📋 Deployment Output
+
+After successful deployment, you'll see contract addresses like:
+
+```
+Deployed Addresses
+
+ChainLanceModule#MockPYUSD - 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+ChainLanceModule#ReputationSystem - 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+ChainLanceModule#ASIAgentOracle - 0x5FbDB2315678afecb367f032d93F642f64180aa3
+ChainLanceModule#ASIAgentVerifier - 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+ChainLanceModule#ChainLanceCore - 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9
 ```
 
-After setting the variable, you can run the deployment with the Sepolia network:
+## 🔧 Key Features Implemented
 
-```shell
-npx hardhat ignition deploy --network sepolia ignition/modules/Counter.ts
+### Escrow & Payment System
+- ✅ Trustless escrow with smart contract automation
+- ✅ PYUSD stablecoin integration for stable payments
+- ✅ Automatic release after 14-day timeout
+- ✅ Platform fee collection (configurable 0-10%)
+
+### Staking Mechanism
+- ✅ Freelancer stake requirement (10% of bid amount)
+- ✅ Client escrow deposit (10-20% of budget)
+- ✅ Stake slashing for contract breaches
+- ✅ Automatic refunds for rejected bids
+
+### ASI Agent Integration
+- ✅ Autonomous work verification using Fetch.ai agents
+- ✅ Multi-criteria evaluation system
+- ✅ Category-specific verification templates
+- ✅ Confidence scoring and issue reporting
+
+### Reputation System
+- ✅ On-chain storage of ratings and reviews
+- ✅ Multi-dimensional scoring system
+- ✅ Reputation levels with thresholds
+- ✅ Dispute handling for unfair ratings
+
+## 🧪 Testing
+
+Run the comprehensive test suite:
+
+```bash
+# Run all tests
+npm test
+
+# Compile contracts
+npm run compile
 ```
+
+## 📚 Usage Examples
+
+### Job Posting
+
+```solidity
+// Post a job with escrow deposit
+chainLance.postJob(
+    "Build DeFi Dashboard",
+    "Comprehensive React dashboard for DeFi protocols",
+    "Web Development",
+    ["React", "TypeScript", "Web3"],
+    5000 * 10**6, // 5000 PYUSD (6 decimals)
+    ContractType.Milestone,
+    block.timestamp + 30 days,
+    "expert",
+    "6-8 weeks",
+    4 // number of milestones
+);
+```
+
+### Bidding
+
+```solidity
+// Place bid with stake
+chainLance.placeBid(
+    jobId,
+    4500 * 10**6, // 4500 PYUSD
+    "I have 5+ years experience building DeFi dashboards...",
+    "6 weeks",
+    ["Planning & Design", "Core Development", "Testing", "Deployment"]
+);
+```
+
+## 🔐 Security Features
+
+- **ReentrancyGuard**: Prevents reentrancy attacks
+- **Access Control**: Role-based permissions with OpenZeppelin
+- **Input Validation**: Comprehensive parameter checking
+- **Escrow Protection**: Funds locked until conditions met
+- **Stake Slashing**: Economic penalties for contract breaches
+- **Automatic Timeouts**: Protects against indefinite holds
+
+## 🌐 Network Configuration
+
+Supported networks:
+- **Ethereum Mainnet** (production)
+- **Sepolia Testnet** (testing) ✅ Ready
+- **Local Hardhat Network** (development) ✅ Ready
+- **Arbitrum** (L2 scaling) - Future
+- **Polygon** (alternative L2) - Future
+
+## 🤖 ASI Agent Integration
+
+To start the ASI agent network:
+
+```bash
+cd ../asi-agents
+pip install -r requirements.txt
+python start_agents.py
+```
+
+Agents will automatically:
+1. Monitor blockchain events
+2. Verify submitted deliverables
+3. Submit verification results
+4. Handle dispute resolution
+
+## 📊 Contract Interactions Flow
+
+1. **Job Posting**: Client deposits 10-20% escrow
+2. **Bidding**: Freelancers stake 10% of bid amount
+3. **Contract Creation**: Full payment locked in escrow
+4. **Milestone Delivery**: Freelancer submits work
+5. **AI Verification**: ASI agents verify deliverables
+6. **Payment Release**: Automatic after 14 days or manual approval
+7. **Reputation Update**: On-chain ratings recorded
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+1. **Compilation Errors**: Enable viaIR in hardhat.config.ts
+2. **Gas Estimation**: Use optimizer with 200 runs
+3. **Network Issues**: Check RPC URL and private key
+4. **Test Failures**: Ensure chai dependency is installed
+
+### Support
+
+- **Documentation**: This README and inline code comments
+- **Issues**: GitHub Issues for bug reports
+- **Community**: Discord for general questions

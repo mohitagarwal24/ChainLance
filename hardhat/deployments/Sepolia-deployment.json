@@ -1,0 +1,38 @@
+{
+  "network": {
+    "chainId": 11155111,
+    "name": "Sepolia"
+  },
+  "deployer": "0xfa462b48e937d6fb3503d5358a0d073fe720e0dd",
+  "timestamp": "2025-10-21T07:33:46.006Z",
+  "contracts": {
+    "MockPYUSD": {
+      "address": "0x3ce0c7d4e26dc6e560dd178b6bb477f85935211b",
+      "constructorArgs": []
+    },
+    "ReputationSystem": {
+      "address": "0xf2cf865dde10c10505ca6aabc0f3e0973086e47e",
+      "constructorArgs": []
+    },
+    "ASIAgentOracle": {
+      "address": "0x5fc53f1a0c8e449b58b51577f7efde1d2ddb83c4",
+      "constructorArgs": []
+    },
+    "ASIAgentVerifier": {
+      "address": "0x062a05433742ca668e0f86ac24d9cc20327134d0",
+      "constructorArgs": [
+        "0x65e8cf513bd9c195c17bbc3ef6c045c64ec5cbc0"
+      ]
+    },
+    "ChainLanceCore": {
+      "address": "0x65e8cf513bd9c195c17bbc3ef6c045c64ec5cbc0",
+      "constructorArgs": [
+        "0x3ce0c7d4e26dc6e560dd178b6bb477f85935211b",
+        "0x062a05433742ca668e0f86ac24d9cc20327134d0"
+      ]
+    }
+  },
+  "gasUsed": {
+    "total": "Calculated during deployment"
+  }
+}

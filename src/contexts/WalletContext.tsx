@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useData, Profile } from './DataContext';
+import { useWeb3 } from './Web3Context';
 
 interface WalletContextType {
   walletAddress: string | null;
@@ -29,6 +30,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [availableAccounts, setAvailableAccounts] = useState<string[]>([]);
   const { getProfile, createProfile, updateProfile: updateProfileData } = useData();
+  const { initializeContracts } = useWeb3();
 
   useEffect(() => {
     const savedAddress = localStorage.getItem('walletAddress');
@@ -108,6 +110,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
 
           setUserProfile(profile);
+          
+          // Initialize Web3 contracts
+          await initializeContracts();
         }
       } else {
         alert('Please install MetaMask or another Web3 wallet to use this platform.');

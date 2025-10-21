@@ -2,7 +2,7 @@
 pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IChainLanceCore {
     function verifyMilestone(uint256 _contractId, uint256 _milestoneIndex, bool _approved) external;
@@ -14,6 +14,13 @@ interface IChainLanceCore {
  * Integrates with Fetch.ai ASI agents for autonomous verification
  */
 contract ASIAgentVerifier is Ownable, ReentrancyGuard {
+    
+    constructor(address _chainLanceCore) Ownable(msg.sender) {
+        chainLanceCore = IChainLanceCore(_chainLanceCore);
+        
+        // Initialize default verification templates
+        _initializeTemplates();
+    }
     
     IChainLanceCore public chainLanceCore;
     
@@ -71,12 +78,6 @@ contract ASIAgentVerifier is Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address _chainLanceCore) {
-        chainLanceCore = IChainLanceCore(_chainLanceCore);
-        
-        // Initialize default verification templates
-        _initializeTemplates();
-    }
 
     /**
      * @dev Initialize default verification templates for different job categories
@@ -166,20 +167,32 @@ contract ASIAgentVerifier is Ownable, ReentrancyGuard {
         bool _approved,
         string memory _verificationReport
     ) external onlyRegisteredAgent nonReentrant {
+        _submitVerification(_requestId, _approved, _verificationReport, msg.sender);
+    }
+    
+    /**
+     * @dev Internal function to submit verification
+     */
+    function _submitVerification(
+        uint256 _requestId,
+        bool _approved,
+        string memory _verificationReport,
+        address _agent
+    ) internal {
         require(_requestId < nextRequestId, "Invalid request ID");
         
         VerificationRequest storage request = verificationRequests[_requestId];
         require(!request.completed, "Verification already completed");
-        require(agentStats[msg.sender].isActive, "Agent is not active");
+        require(agentStats[_agent].isActive, "Agent is not active");
         
         // Update request
         request.completed = true;
         request.approved = _approved;
-        request.verifyingAgent = msg.sender;
+        request.verifyingAgent = _agent;
         request.verificationReport = _verificationReport;
         
         // Update agent stats
-        AgentStats storage stats = agentStats[msg.sender];
+        AgentStats storage stats = agentStats[_agent];
         stats.totalVerifications++;
         
         // Calculate response time
@@ -189,7 +202,7 @@ contract ASIAgentVerifier is Ownable, ReentrancyGuard {
         // Notify ChainLance core contract
         chainLanceCore.verifyMilestone(request.contractId, request.milestoneIndex, _approved);
         
-        emit VerificationCompleted(_requestId, _approved, msg.sender);
+        emit VerificationCompleted(_requestId, _approved, _agent);
     }
 
     /**
@@ -205,7 +218,7 @@ contract ASIAgentVerifier is Ownable, ReentrancyGuard {
         require(_requestIds.length <= 10, "Too many requests in batch");
         
         for (uint256 i = 0; i < _requestIds.length; i++) {
-            submitVerification(_requestIds[i], _approvals[i], _reports[i]);
+            _submitVerification(_requestIds[i], _approvals[i], _reports[i], msg.sender);
         }
     }
 

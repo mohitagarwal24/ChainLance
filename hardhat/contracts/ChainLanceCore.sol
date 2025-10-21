@@ -2,9 +2,8 @@
 pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 
 /**
  * @title ChainLanceCore
@@ -12,12 +11,15 @@ import "@openzeppelin/contracts/utils/Counters.sol";
  * Handles job posting, bidding, escrow, and payments with ASI agent integration
  */
 contract ChainLanceCore is ReentrancyGuard, Ownable {
-    using Counters for Counters.Counter;
-
     // Counters for IDs
-    Counters.Counter private _jobIds;
-    Counters.Counter private _bidIds;
-    Counters.Counter private _contractIds;
+    uint256 private _jobIds;
+    uint256 private _bidIds;
+    uint256 private _contractIds;
+
+    constructor(address _pyusdToken, address _asiAgentVerifier) Ownable(msg.sender) {
+        pyusdToken = IERC20(_pyusdToken);
+        asiAgentVerifier = _asiAgentVerifier;
+    }
 
     // PYUSD token contract
     IERC20 public immutable pyusdToken;
@@ -146,10 +148,6 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
     event ASIVerificationCompleted(uint256 indexed contractId, uint256 milestoneIndex, bool approved);
     event ProfileUpdated(address indexed user, string displayName);
 
-    constructor(address _pyusdToken, address _asiAgentVerifier) {
-        pyusdToken = IERC20(_pyusdToken);
-        asiAgentVerifier = _asiAgentVerifier;
-    }
 
     modifier onlyASIAgent() {
         require(msg.sender == asiAgentVerifier, "Only ASI agent can call this function");
@@ -157,17 +155,17 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
     }
 
     modifier jobExists(uint256 _jobId) {
-        require(_jobId > 0 && _jobId <= _jobIds.current(), "Job does not exist");
+        require(_jobId > 0 && _jobId <= _jobIds, "Job does not exist");
         _;
     }
 
     modifier bidExists(uint256 _bidId) {
-        require(_bidId > 0 && _bidId <= _bidIds.current(), "Bid does not exist");
+        require(_bidId > 0 && _bidId <= _bidIds, "Bid does not exist");
         _;
     }
 
     modifier contractExists(uint256 _contractId) {
-        require(_contractId > 0 && _contractId <= _contractIds.current(), "Contract does not exist");
+        require(_contractId > 0 && _contractId <= _contractIds, "Contract does not exist");
         _;
     }
 
@@ -226,8 +224,8 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
             "Escrow deposit transfer failed"
         );
 
-        _jobIds.increment();
-        uint256 jobId = _jobIds.current();
+        _jobIds++;
+        uint256 jobId = _jobIds;
 
         Job storage job = jobs[jobId];
         job.id = jobId;
@@ -276,8 +274,8 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
             "Stake transfer failed"
         );
 
-        _bidIds.increment();
-        uint256 bidId = _bidIds.current();
+        _bidIds++;
+        uint256 bidId = _bidIds;
 
         Bid storage bid = bids[bidId];
         bid.id = bidId;
@@ -321,8 +319,8 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
             );
         }
 
-        _contractIds.increment();
-        uint256 contractId = _contractIds.current();
+        _contractIds++;
+        uint256 contractId = _contractIds;
 
         // Create contract
         FreelanceContract storage newContract = contracts[contractId];

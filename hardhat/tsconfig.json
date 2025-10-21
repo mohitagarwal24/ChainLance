@@ -8,6 +8,11 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "moduleResolution": "node16",
-    "outDir": "dist"
-  }
+    "outDir": "dist",
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["scripts/**/*", "test/**/*", "ignition/**/*", "hardhat.config.ts"],
+  "exclude": ["node_modules", "dist", "cache", "artifacts"]
 }

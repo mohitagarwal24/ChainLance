@@ -4,19 +4,37 @@
   "description": "Smart contracts for ChainLance decentralized freelancing platform",
   "type": "module",
   "scripts": {
+    "build": "hardhat build",
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy": "hardhat run scripts/deploy.ts",
-    "node": "hardhat node"
+    "test:solidity": "hardhat test foundry",
+    "deploy:local": "npx hardhat ignition deploy ignition/modules/ChainLanceDeploy.ts --network hardhat",
+    "deploy:sepolia": "npx hardhat ignition deploy ignition/modules/ChainLanceDeploy.ts --network sepolia",
+    "deploy:script:local": "npx hardhat run scripts/deploy.ts --network hardhat",
+    "deploy:script:sepolia": "npx hardhat run scripts/deploy.ts --network sepolia",
+    "verify:sepolia": "npx hardhat verify --network sepolia",
+    "node": "hardhat node",
+    "clean": "hardhat clean"
   },
-  "keywords": ["blockchain", "freelancing", "smart-contracts", "defi"],
+  "keywords": [
+    "blockchain",
+    "freelancing",
+    "smart-contracts",
+    "defi"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "hardhat": "^3.0.7",
-    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.0",
     "@nomicfoundation/hardhat-ignition": "^3.0.3",
+    "@nomicfoundation/hardhat-toolbox-viem": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^3.0.3",
+    "@nomicfoundation/hardhat-viem": "^3.0.0",
+    "@types/chai": "^5.2.2",
     "@types/node": "^22.8.5",
+    "chai": "^6.2.0",
+    "dotenv": "^17.2.3",
+    "ethers": "^6.15.0",
+    "hardhat": "^3.0.7",
     "typescript": "~5.8.0",
     "viem": "^2.30.0"
   },
