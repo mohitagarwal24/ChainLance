@@ -68,6 +68,42 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     try {
+      // Request MetaMask to switch to the selected account
+      await window.ethereum.request({
+        method: 'wallet_requestPermissions',
+        params: [{ eth_accounts: {} }],
+      });
+
+      // Request accounts again to ensure we get the selected account
+      const accounts = await window.ethereum.request({
+        method: 'eth_requestAccounts',
+      });
+
+      // If the user selected the desired account in MetaMask, use it
+      const selectedAddress = accounts.find(acc => acc.toLowerCase() === address.toLowerCase()) || accounts[0];
+      
+      console.log('✅ Account switched successfully to:', selectedAddress);
+      setWalletAddress(selectedAddress);
+      localStorage.setItem('walletAddress', selectedAddress);
+
+      let profile = getProfile(selectedAddress);
+
+      if (!profile) {
+        profile = await createProfile({
+          wallet_address: selectedAddress,
+          role: 'both',
+        });
+      }
+
+      setUserProfile(profile);
+      
+      // Refresh available accounts
+      await refreshAccounts();
+    } catch (error) {
+      console.error('Error switching account:', error);
+      // If user cancels or there's an error, fall back to just updating the frontend
+      // This maintains backward compatibility
+      console.log('⚠️ Falling back to frontend-only account switch to:', address);
       setWalletAddress(address);
       localStorage.setItem('walletAddress', address);
 
@@ -81,8 +117,6 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       setUserProfile(profile);
-    } catch (error) {
-      console.error('Error switching account:', error);
     }
   };
 

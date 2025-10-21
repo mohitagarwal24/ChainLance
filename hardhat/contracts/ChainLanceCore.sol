@@ -539,7 +539,7 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
     /**
      * @dev Slash freelancer stake for contract breach
      */
-    function slashStake(uint256 _bidId, string memory _reason) 
+    function slashStake(uint256 _bidId) 
         external 
         onlyOwner 
         bidExists(_bidId) 
@@ -603,6 +603,19 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
 
     function getUserContracts(address _user) external view returns (uint256[] memory) {
         return userContracts[_user];
+    }
+
+    // Utility functions
+    function getTotalJobs() external view returns (uint256) {
+        return _jobIds;
+    }
+
+    function getTotalBids() external view returns (uint256) {
+        return _bidIds;
+    }
+
+    function getTotalContracts() external view returns (uint256) {
+        return _contractIds;
     }
 
     // Admin functions

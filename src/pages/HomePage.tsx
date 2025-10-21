@@ -1,5 +1,8 @@
-import { Search, Briefcase, Shield, Zap, Users, TrendingUp, CheckCircle } from 'lucide-react';
+import { Shield, Zap, TrendingUp, CheckCircle } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
+import { ASIAgentStatus } from '../components/ASIAgentStatus';
+import { ReputationDisplay } from '../components/ReputationDisplay';
+import { useContractData } from '../contexts/ContractDataContext';
 
 interface HomePageProps {
   onNavigate: (page: string) => void;
@@ -7,6 +10,7 @@ interface HomePageProps {
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const { walletAddress, connectWallet, isConnecting } = useWallet();
+  const { getJobs, isLoading } = useContractData();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950">
@@ -275,6 +279,72 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
             </p>
           </div>
         </div>
+
+        {/* ASI Agent and Reputation Status - Only show when wallet connected */}
+        {walletAddress && (
+          <div className="mt-16">
+            <h2 className="text-3xl font-bold text-white text-center mb-8">
+              Platform Status
+            </h2>
+            <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+              <ASIAgentStatus />
+              <ReputationDisplay />
+            </div>
+          </div>
+        )}
+
+        {/* Debug Section - Only show when wallet connected */}
+        {walletAddress && (
+          <div className="mt-16">
+            <h2 className="text-3xl font-bold text-white text-center mb-8">
+              Debug Information
+            </h2>
+            <div className="card p-6 max-w-4xl mx-auto">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">Contract Status</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Wallet:</span>
+                      <span className="text-green-400 font-mono text-xs">
+                        {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Loading Jobs:</span>
+                      <span className={isLoading ? "text-yellow-400" : "text-green-400"}>
+                        {isLoading ? "Yes" : "No"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Available Jobs:</span>
+                      <span className="text-blue-400">
+                        {getJobs().length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-white mb-3">Quick Actions</h3>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => onNavigate('post-job')}
+                      className="btn-primary w-full text-sm"
+                    >
+                      Post Test Job
+                    </button>
+                    <button
+                      onClick={() => onNavigate('jobs')}
+                      className="btn-secondary w-full text-sm"
+                    >
+                      View Find Work
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

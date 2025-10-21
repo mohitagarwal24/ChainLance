@@ -942,6 +942,45 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "getTotalBids",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getTotalContracts",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getTotalJobs",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -1369,11 +1408,6 @@
         "internalType": "uint256",
         "name": "_bidId",
         "type": "uint256"
-      },
-      {
-        "internalType": "string",
-        "name": "_reason",
-        "type": "string"
       }
     ],
     "name": "slashStake",

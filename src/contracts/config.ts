@@ -27,7 +27,7 @@ export const ABIS = {
 export const NETWORK_CONFIG = {
   CHAIN_ID: parseInt(import.meta.env.VITE_CHAIN_ID || '11155111'),
   NETWORK_NAME: import.meta.env.VITE_NETWORK_NAME || 'Sepolia',
-  RPC_URL: 'https://sepolia.infura.io/v3/YOUR_INFURA_KEY', // You may want to add this to env
+  RPC_URL: import.meta.env.VITE_RPC_URL || 'https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161', // Public Infura endpoint
 } as const;
 
 // Contract constants

@@ -1,20 +1,22 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Clock, MapPin, Award } from 'lucide-react';
-import { useData, Job, Bid, Profile } from '../contexts/DataContext';
+import { useContractData, EnhancedJob, EnhancedBid } from '../contexts/ContractDataContext';
 import { useWallet } from '../contexts/WalletContext';
+import { useData, Profile } from '../contexts/DataContext';
 
 interface JobDetailPageProps {
-  jobId: string;
+  jobId: string | number;
   onNavigate: (page: string, data?: any) => void;
 }
 
 export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate }) => {
   const { walletAddress } = useWallet();
-  const { getJob, getProfile, getBidsForJob, createBid } = useData();
-  const [job, setJob] = useState<Job | null>(null);
+  const { getJob, getJobs, createBid, getBidsForJob, isLoading } = useContractData();
+  const { getProfile } = useData();
+  const [job, setJob] = useState<EnhancedJob | null>(null);
+  const [bids, setBids] = useState<EnhancedBid[]>([]);
+  const [bidProfiles, setBidProfiles] = useState<{ [key: string]: Profile }>({});
   const [client, setClient] = useState<Profile | null>(null);
-  const [bids, setBids] = useState<Bid[]>([]);
-  const [bidProfiles, setBidProfiles] = useState<{[key: string]: Profile}>({});
   const [loading, setLoading] = useState(true);
   const [showBidForm, setShowBidForm] = useState(false);
 
@@ -27,35 +29,59 @@ export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate 
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    loadJobDetails();
+    if (jobId !== undefined && jobId !== null) {
+      loadJobDetails();
+    }
   }, [jobId]);
 
-  const loadJobDetails = async () => {
-    const jobData = getJob(jobId);
-
-    if (jobData) {
-      setJob(jobData);
-
-      const clientData = getProfile(jobData.client_wallet);
-      if (clientData) {
-        setClient(clientData);
-      }
-
-      const bidsData = getBidsForJob(jobId);
-      setBids(bidsData);
-
-      // Load profiles for each bid
-      const profiles: {[key: string]: Profile} = {};
-      bidsData.forEach(bid => {
-        const profile = getProfile(bid.freelancer_wallet);
-        if (profile) {
-          profiles[bid.freelancer_wallet] = profile;
-        }
-      });
-      setBidProfiles(profiles);
+  // Reload job details when wallet address changes
+  useEffect(() => {
+    if (jobId !== undefined && jobId !== null && walletAddress) {
+      console.log('🔄 Wallet address changed, reloading job details for:', walletAddress);
+      loadJobDetails();
     }
+  }, [walletAddress]);
 
-    setLoading(false);
+  const loadJobDetails = async () => {
+    try {
+      console.log('🔍 Loading job details for ID:', jobId, 'type:', typeof jobId);
+
+      // Convert jobId to string for getJob function
+      const jobIdString = String(jobId);
+      const jobData = getJob(jobIdString);
+      console.log('📋 Job data found:', jobData);
+
+      if (jobData) {
+        setJob(jobData);
+
+        // Load client profile
+        const clientProfile = getProfile(jobData.client_wallet);
+        setClient(clientProfile);
+
+        // Load bids for this job
+        const jobBids = getBidsForJob(jobIdString);
+        setBids(jobBids);
+
+        // Load profiles for all bidders
+        const profiles: { [key: string]: Profile } = {};
+        jobBids.forEach(bid => {
+          const profile = getProfile(bid.freelancer_wallet);
+          if (profile) {
+            profiles[bid.freelancer_wallet] = profile;
+          }
+        });
+        setBidProfiles(profiles);
+      } else {
+        console.log('❌ Job not found for ID:', jobId);
+        const allJobs = getJobs();
+        console.log('📋 Available jobs:', allJobs.map(j => ({ id: j.id, title: j.title })));
+        console.log('🔍 Looking for job with ID:', jobIdString, 'in jobs with IDs:', allJobs.map(j => j.id));
+      }
+    } catch (error) {
+      console.error('Error loading job details:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmitBid = async (e: React.FormEvent) => {
@@ -65,22 +91,36 @@ export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate 
       return;
     }
 
+    if (!job) {
+      alert('Job not found');
+      return;
+    }
+
+    // Prevent job owners from bidding on their own jobs
+    if (job.client_wallet?.toLowerCase() === walletAddress?.toLowerCase()) {
+      alert('You cannot bid on your own job posting');
+      return;
+    }
+
     setSubmitting(true);
 
-    const stakeAmount = parseFloat(bidData.proposed_amount) * 0.1;
+    const proposedAmount = parseFloat(bidData.proposed_amount);
+    const stakeAmount = proposedAmount * 0.1; // 10% stake
 
     try {
+      // Create bid with real contract interaction
       await createBid({
         job_id: jobId,
         freelancer_wallet: walletAddress,
-        proposed_amount: parseFloat(bidData.proposed_amount),
+        proposed_amount: proposedAmount,
         stake_amount: stakeAmount,
         cover_letter: bidData.cover_letter,
         estimated_timeline: bidData.estimated_timeline,
+        proposed_milestones: bidData.cover_letter ? [bidData.cover_letter] : [],
         status: 'pending',
       });
 
-      alert('Bid submitted successfully! In production, you would now stake tokens to the smart contract.');
+      alert('Bid submitted successfully! Your stake has been locked in the smart contract.');
       setShowBidForm(false);
       setBidData({
         proposed_amount: '',
@@ -88,12 +128,15 @@ export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate 
         cover_letter: '',
         estimated_timeline: '',
       });
-      loadJobDetails();
-    } catch (error) {
-      alert('Error submitting bid');
-    }
 
-    setSubmitting(false);
+      // Reload job details to show the new bid
+      await loadJobDetails();
+    } catch (error) {
+      console.error('Error submitting bid:', error);
+      alert(`Error submitting bid: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getTimeSince = (dateString: string) => {
@@ -107,7 +150,7 @@ export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate 
     return `${Math.floor(seconds / 86400)}d ago`;
   };
 
-  if (loading) {
+  if (loading || isLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -116,15 +159,39 @@ export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate 
   }
 
   if (!job) {
+    const allJobs = getJobs();
     return (
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h2 className="text-2xl font-bold text-gray-900">Job not found</h2>
+        <h2 className="text-2xl font-bold text-white mb-4">Job not found</h2>
+        <p className="text-gray-400 mb-4">
+          Job ID "{jobId}" could not be found.
+        </p>
+        <p className="text-gray-400 mb-6">
+          Available jobs: {allJobs.length > 0 ? allJobs.map(j => j.id).join(', ') : 'None'}
+        </p>
+        <button
+          onClick={() => onNavigate('jobs')}
+          className="btn-primary"
+        >
+          Back to Find Work
+        </button>
       </div>
     );
   }
 
-  const userHasBid = bids.some(bid => bid.freelancer_wallet === walletAddress);
-  const isJobOwner = job.client_wallet === walletAddress;
+  const userHasBid = bids.some(bid =>
+    bid.freelancer_wallet?.toLowerCase() === walletAddress?.toLowerCase()
+  );
+  const isJobOwner = job.client_wallet?.toLowerCase() === walletAddress?.toLowerCase();
+
+  // Debug logging for job owner detection
+  console.log('🔍 Job owner detection:', {
+    jobClientWallet: job.client_wallet,
+    currentWalletAddress: walletAddress,
+    isJobOwner,
+    userHasBid,
+    bidsCount: bids.length
+  });
 
   return (
     <div className="min-h-screen py-8">
@@ -143,7 +210,7 @@ export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate 
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
                   <h1 className="text-3xl font-bold text-white mb-4">{job.title}</h1>
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <div className="flex items-center gap-4 text-sm text-gray-400">
                     <span className="flex items-center gap-1">
                       <Clock className="w-4 h-4" />
                       Posted {getTimeSince(job.created_at)}
@@ -184,54 +251,65 @@ export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate 
               </div>
             </div>
 
-            {isJobOwner && bids.length > 0 && (
+            {isJobOwner && (
               <div className="bg-gray-800 rounded-lg shadow-sm p-6">
                 <h3 className="text-xl font-bold text-white mb-4">
                   Proposals ({bids.length})
                 </h3>
-                <div className="space-y-4">
-                  {bids.map((bid) => (
-                    <div key={bid.id} className="border border-gray-700 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <div className="font-semibold text-white">
-                            {bidProfiles[bid.freelancer_wallet]?.display_name || `${bid.freelancer_wallet.slice(0, 8)}...`}
+                {bids.length > 0 ? (
+                  <div className="space-y-4">
+                    {bids.map((bid) => (
+                      <div key={bid.id} className="border border-gray-700 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <div className="font-semibold text-white">
+                              {bidProfiles[bid.freelancer_wallet]?.display_name ||
+                                `${bid.freelancer_wallet.slice(0, 8)}...`}
+                            </div>
+                            <div className="text-sm text-gray-400">
+                              {bidProfiles[bid.freelancer_wallet]?.average_rating > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <Award className="w-4 h-4 text-yellow-500" />
+                                  {bidProfiles[bid.freelancer_wallet].average_rating.toFixed(1)} (
+                                  {bidProfiles[bid.freelancer_wallet].total_reviews} reviews)
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {bidProfiles[bid.freelancer_wallet]?.average_rating > 0 && (
-                              <span className="flex items-center gap-1">
-                                <Award className="w-4 h-4 text-yellow-500" />
-                                {bidProfiles[bid.freelancer_wallet].average_rating.toFixed(1)} ({bidProfiles[bid.freelancer_wallet].total_reviews} reviews)
-                              </span>
-                            )}
+                          <div className="text-right">
+                            <div className="text-2xl font-bold text-white">
+                              ${bid.proposed_amount.toLocaleString()}
+                            </div>
+                            <div className="text-sm text-gray-400">
+                              Stake: ${bid.stake_amount.toFixed(2)}
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-white">
-                            ${bid.proposed_amount.toLocaleString()}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            Stake: ${bid.stake_amount.toFixed(2)}
-                          </div>
+                        <p className="text-gray-300 text-sm mb-3">{bid.cover_letter}</p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-400">
+                            Timeline: {bid.estimated_timeline}
+                          </span>
+                          {bid.status === 'pending' && (
+                            <button
+                              onClick={() => onNavigate('accept-bid', { jobId: job.id, bidId: bid.id })}
+                              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                            >
+                              Accept Proposal
+                            </button>
+                          )}
                         </div>
                       </div>
-                      <p className="text-gray-300 text-sm mb-3">{bid.cover_letter}</p>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500">
-                          Timeline: {bid.estimated_timeline}
-                        </span>
-                        {bid.status === 'pending' && (
-                          <button
-                            onClick={() => onNavigate('accept-bid', { jobId: job.id, bidId: bid.id })}
-                            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-                          >
-                            Accept Proposal
-                          </button>
-                        )}
-                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="text-gray-400 mb-2">No proposals yet</div>
+                    <div className="text-sm text-gray-500">
+                      Freelancers will be able to submit proposals for your job posting.
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

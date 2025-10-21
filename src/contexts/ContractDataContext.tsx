@@ -125,10 +125,18 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Load initial data when service is ready
   useEffect(() => {
-    if (contractService && walletAddress) {
+    if (contractService) {
       loadInitialData();
     }
-  }, [contractService, walletAddress]);
+  }, [contractService]);
+
+  // Refresh data when wallet address changes
+  useEffect(() => {
+    if (contractService && walletAddress) {
+      console.log('🔄 Wallet address changed, refreshing contract data for:', walletAddress);
+      loadInitialData();
+    }
+  }, [walletAddress, contractService]);
 
   const loadInitialData = async () => {
     setIsLoading(true);
@@ -147,39 +155,50 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Job methods
   const refreshJobs = async () => {
-    if (!contractService || !walletAddress) return;
+    if (!contractService) {
+      console.log('Contract service not available, skipping job refresh');
+      return;
+    }
     
     try {
-      // Get all jobs for the user (both posted and available)
-      const userJobIds = await contractService.getUserJobs(walletAddress);
-      const userJobs = await Promise.all(
-        userJobIds.map(async (id) => {
-          const job = await contractService.getJob(id);
-          return job ? convertContractJobToEnhanced(job) : null;
-        })
-      );
+      console.log('Starting job refresh...');
+      // Get all open jobs from the blockchain
+      const openJobs = await contractService.getOpenJobs();
+      console.log('Open jobs from contract:', openJobs);
       
-      setJobs(userJobs.filter(Boolean) as EnhancedJob[]);
+      const enhancedJobs = openJobs.map(job => convertContractJobToEnhanced(job));
+      console.log('Enhanced jobs:', enhancedJobs);
+      
+      setJobs(enhancedJobs);
+      console.log('Jobs state updated with', enhancedJobs.length, 'jobs');
     } catch (error) {
       console.error('Error refreshing jobs:', error);
     }
   };
 
   const getJobs = (filters?: { category?: string; contract_type?: string; budget_range?: string; status?: string }): EnhancedJob[] => {
+    console.log('🔍 Getting jobs with filters:', filters);
+    console.log('📊 Total jobs in state:', jobs.length);
+    
     let filteredJobs = [...jobs];
+    console.log('📋 Jobs before filtering:', filteredJobs.map(j => ({ id: j.id, title: j.title, status: j.status })));
 
     if (filters?.status) {
       filteredJobs = filteredJobs.filter(job => job.status === filters.status);
+      console.log(`🔎 Filtered by status '${filters.status}':`, filteredJobs.length, 'jobs');
     } else {
       filteredJobs = filteredJobs.filter(job => job.status === 'open');
+      console.log('🔎 Filtered by default status "open":', filteredJobs.length, 'jobs');
     }
 
     if (filters?.category && filters.category !== 'all') {
       filteredJobs = filteredJobs.filter(job => job.category === filters.category);
+      console.log(`🔎 Filtered by category '${filters.category}':`, filteredJobs.length, 'jobs');
     }
 
     if (filters?.contract_type && filters.contract_type !== 'all') {
       filteredJobs = filteredJobs.filter(job => job.contract_type === filters.contract_type);
+      console.log(`🔎 Filtered by contract_type '${filters.contract_type}':`, filteredJobs.length, 'jobs');
     }
 
     if (filters?.budget_range && filters.budget_range !== 'all') {
@@ -190,13 +209,16 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
         return job.budget >= min;
       });
+      console.log(`🔎 Filtered by budget range '${filters.budget_range}':`, filteredJobs.length, 'jobs');
     }
 
-    return filteredJobs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    const sortedJobs = filteredJobs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    console.log('✅ Final filtered jobs:', sortedJobs.length);
+    return sortedJobs;
   };
 
   const getJob = (jobId: string): EnhancedJob | null => {
-    return jobs.find(job => job.id.toString() === jobId) || null;
+    return jobs.find(job => job.id === parseInt(jobId)) || null;
   };
 
   const createJob = async (jobData: any): Promise<EnhancedJob> => {
@@ -232,7 +254,11 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Bid methods
   const refreshBids = async () => {
-    if (!contractService || !walletAddress) return;
+    if (!contractService) return;
+    if (!walletAddress) {
+      setBids([]);
+      return;
+    }
     
     try {
       const userBidIds = await contractService.getUserBids(walletAddress);
@@ -299,7 +325,11 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Contract methods
   const refreshContracts = async () => {
-    if (!contractService || !walletAddress) return;
+    if (!contractService) return;
+    if (!walletAddress) {
+      setContracts([]);
+      return;
+    }
     
     try {
       const userContractIds = await contractService.getUserContracts(walletAddress);
@@ -352,12 +382,21 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Helper functions to convert contract types to enhanced types
   const convertContractJobToEnhanced = (job: ContractJob): EnhancedJob => {
     const contractTypeMap = ['fixed', 'hourly', 'milestone'] as const;
-    const statusMap = ['draft', 'open', 'in_progress', 'completed', 'cancelled', 'disputed'] as const;
+    // Contract enum: JobStatus { Open, InProgress, Completed, Cancelled, Disputed } = [0, 1, 2, 3, 4]
+    const statusMap = ['open', 'in_progress', 'completed', 'cancelled', 'disputed'] as const;
     const experienceLevelMap = ['beginner', 'intermediate', 'expert'] as const;
     
-    return {
+    console.log('🔄 Converting job:', {
+      id: job.id,
+      title: job.title,
+      rawStatus: job.status,
+      rawContractType: job.contractType,
+      client: job.client
+    });
+    
+    const enhancedJob = {
       ...job,
-      id: job.id.toString(),
+      id: job.id, // Keep as number
       client_wallet: job.client,
       contract_type: contractTypeMap[job.contractType] || 'fixed',
       status: statusMap[job.status] || 'open',
@@ -372,16 +411,34 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
       created_at: new Date(job.createdAt * 1000).toISOString(),
       updated_at: new Date(job.updatedAt * 1000).toISOString(),
     };
+    
+    console.log('✅ Enhanced job:', {
+      id: enhancedJob.id,
+      title: enhancedJob.title,
+      status: enhancedJob.status,
+      contract_type: enhancedJob.contract_type
+    });
+    
+    return enhancedJob;
   };
 
   const convertContractBidToEnhanced = (bid: ContractBid): EnhancedBid => {
     const statusMap = ['pending', 'accepted', 'rejected', 'withdrawn'] as const;
     
     return {
-      ...bid,
-      id: bid.id.toString(),
+      id: bid.id,
+      jobId: bid.jobId,
+      freelancer: bid.freelancer,
+      proposedAmount: bid.proposedAmount,
+      stakeAmount: bid.stakeAmount,
+      coverLetter: bid.coverLetter,
+      estimatedTimeline: bid.estimatedTimeline,
+      proposedMilestones: bid.proposedMilestones,
+      createdAt: bid.createdAt,
       job_id: bid.jobId.toString(),
       freelancer_wallet: bid.freelancer,
+      proposed_amount: bid.proposedAmount,
+      stake_amount: bid.stakeAmount,
       stake_tx_hash: null,
       cover_letter: bid.coverLetter,
       estimated_timeline: bid.estimatedTimeline,
@@ -397,14 +454,17 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const statusMap = ['pending', 'active', 'completed', 'cancelled', 'disputed'] as const;
     
     return {
-      ...contract,
-      id: contract.id.toString(),
+      id: contract.id,
       job_id: contract.jobId.toString(),
       bid_id: contract.bidId.toString(),
       client_wallet: contract.client,
       freelancer_wallet: contract.freelancer,
+      total_amount: contract.totalAmount,
+      escrow_amount: contract.escrowAmount,
       escrow_tx_hash: null,
       contract_type: contractTypeMap[contract.contractType] || 'fixed',
+      hourly_rate: contract.hourlyRate,
+      hours_allocated: contract.hoursAllocated,
       payment_schedule: null,
       status: statusMap[contract.status] || 'pending',
       start_date: new Date(contract.startDate * 1000).toISOString(),
@@ -413,7 +473,22 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
       dispute_reason: null,
       created_at: new Date(contract.createdAt * 1000).toISOString(),
       updated_at: new Date(contract.createdAt * 1000).toISOString(),
-    };
+      // Include original contract properties for compatibility
+      jobId: contract.jobId,
+      bidId: contract.bidId,
+      client: contract.client,
+      freelancer: contract.freelancer,
+      totalAmount: contract.totalAmount,
+      escrowAmount: contract.escrowAmount,
+      contractType: contract.contractType,
+      hourlyRate: contract.hourlyRate,
+      hoursAllocated: contract.hoursAllocated,
+      startDate: contract.startDate,
+      endDate: contract.endDate,
+      completionDate: contract.completionDate,
+      milestones: contract.milestones,
+      createdAt: contract.createdAt,
+    } as EnhancedContract;
   };
 
   return (

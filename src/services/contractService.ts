@@ -1,5 +1,5 @@
 import { Contract } from 'ethers';
-import { formatPYUSDAmount, parsePYUSDAmount, CONTRACT_CONSTANTS } from '../contracts/config';
+import { formatPYUSDAmount, parsePYUSDAmount } from '../contracts/config';
 
 // Types for contract interactions
 export interface ContractJob {
@@ -70,6 +70,7 @@ export class ContractService {
   private chainLanceCore: Contract;
   private pyusdToken: Contract;
   private reputationSystem: Contract;
+  // Note: asiAgentVerifier will be used for future AI verification features
   private asiAgentVerifier: Contract;
 
   constructor(contracts: {
@@ -82,6 +83,11 @@ export class ContractService {
     this.pyusdToken = contracts.pyusdToken;
     this.reputationSystem = contracts.reputationSystem;
     this.asiAgentVerifier = contracts.asiAgentVerifier;
+  }
+
+  // Getter for ASI Agent Verifier (for future AI verification features)
+  get asiVerifier(): Contract {
+    return this.asiAgentVerifier;
   }
 
   // Job Management
@@ -132,10 +138,21 @@ export class ContractService {
 
   async getJob(jobId: number): Promise<ContractJob | null> {
     try {
+      console.log(`Fetching job ${jobId} from contract...`);
       const job = await this.chainLanceCore.getJob(jobId);
-      return this.parseJobFromContract(job);
+      console.log(`Raw job data for ID ${jobId}:`, job);
+      
+      // Check if the job actually exists (has a valid client address)
+      if (!job.client || job.client === '0x0000000000000000000000000000000000000000') {
+        console.log(`Job ${jobId} does not exist (empty client address)`);
+        return null;
+      }
+      
+      const parsedJob = this.parseJobFromContract(job);
+      console.log(`Parsed job data for ID ${jobId}:`, parsedJob);
+      return parsedJob;
     } catch (error) {
-      console.error('Error getting job:', error);
+      console.error(`Error getting job ${jobId}:`, error);
       return null;
     }
   }
@@ -145,6 +162,67 @@ export class ContractService {
       return await this.chainLanceCore.getUserJobs(userAddress);
     } catch (error) {
       console.error('Error getting user jobs:', error);
+      return [];
+    }
+  }
+
+  async getAllJobs(): Promise<number[]> {
+    try {
+      console.log('Fetching all jobs from contract...');
+      console.log('Contract address:', await this.chainLanceCore.getAddress());
+      
+      // Use getTotalJobs function (now available in updated contract)
+      const totalJobs = await this.chainLanceCore.getTotalJobs();
+      const count = Number(totalJobs);
+      console.log(`✅ Total jobs from contract: ${count}`);
+      
+      if (count === 0) {
+        console.log('ℹ️ No jobs have been posted to the contract yet');
+        return [];
+      }
+      
+      const jobIds: number[] = [];
+      for (let i = 1; i <= count; i++) {
+        jobIds.push(i);
+      }
+      console.log('📋 Generated job IDs:', jobIds);
+      return jobIds;
+    } catch (error) {
+      console.error('❌ Error getting all jobs:', error);
+      console.error('Contract address:', await this.chainLanceCore.getAddress());
+      return [];
+    }
+  }
+
+  async getOpenJobs(): Promise<ContractJob[]> {
+    try {
+      const allJobIds = await this.getAllJobs();
+      console.log('🔍 Fetching jobs for IDs:', allJobIds);
+      
+      const jobs = await Promise.all(
+        allJobIds.map(async (id) => {
+          const job = await this.getJob(id);
+          return job;
+        })
+      );
+      
+      console.log('📋 All fetched jobs:', jobs.map(j => j ? { id: j.id, status: j.status, title: j.title } : null));
+      
+      // Filter for open jobs only - check what status values we're getting
+      const openJobs = jobs.filter((job): job is ContractJob => {
+        if (!job) {
+          console.log('❌ Null job found');
+          return false;
+        }
+        
+        console.log(`🔍 Job ${job.id} status check: ${job.status} (looking for status 0 = open)`);
+        return job.status === 0; // 0 = open status in enum JobStatus { Open, InProgress, Completed, Cancelled, Disputed }
+      });
+      
+      console.log('✅ Filtered open jobs:', openJobs.length);
+      return openJobs;
+    } catch (error) {
+      console.error('Error getting open jobs:', error);
       return [];
     }
   }

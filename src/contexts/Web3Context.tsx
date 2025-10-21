@@ -49,6 +49,10 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const initializeProvider = async () => {
     try {
+      if (!window.ethereum) {
+        throw new Error('MetaMask not found');
+      }
+
       const browserProvider = new BrowserProvider(window.ethereum);
       setProvider(browserProvider);
 
@@ -61,8 +65,11 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Listen for account changes
-      (window as any).ethereum.on('accountsChanged', handleAccountsChanged);
-      (window as any).ethereum.on('chainChanged', handleChainChanged);
+      const ethereum = window.ethereum;
+      if (ethereum?.on) {
+        ethereum.on('accountsChanged', handleAccountsChanged);
+        ethereum.on('chainChanged', handleChainChanged);
+      }
     } catch (error) {
       console.error('Error initializing provider:', error);
     }
@@ -144,9 +151,12 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Validate contract configuration
+      console.log('Contract addresses:', CONTRACTS);
       if (!validateContractConfig()) {
+        console.error('Contract validation failed');
         throw new Error('Invalid contract configuration');
       }
+      console.log('Contract configuration validated successfully');
 
       // Check network
       const network = await currentProvider.getNetwork();

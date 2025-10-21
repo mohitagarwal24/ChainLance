@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FileText, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import { useData, Contract, Job } from '../contexts/DataContext';
+import { useContractData, EnhancedContract, EnhancedJob } from '../contexts/ContractDataContext';
 import { useWallet } from '../contexts/WalletContext';
 
 interface ContractsPageProps {
@@ -9,9 +9,9 @@ interface ContractsPageProps {
 
 export const ContractsPage: React.FC<ContractsPageProps> = ({ onNavigate }) => {
   const { walletAddress } = useWallet();
-  const { getContractsForWallet, getJob } = useData();
-  const [contracts, setContracts] = useState<Contract[]>([]);
-  const [contractJobs, setContractJobs] = useState<{[key: string]: Job}>({});
+  const { getContractsForWallet, getJob } = useContractData();
+  const [contracts, setContracts] = useState<EnhancedContract[]>([]);
+  const [contractJobs, setContractJobs] = useState<{[key: string]: EnhancedJob}>({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'all'>('active');
 
@@ -31,7 +31,7 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({ onNavigate }) => {
     setContracts(contractsData);
     
     // Load job details for each contract
-    const jobs: {[key: string]: Job} = {};
+    const jobs: {[key: string]: EnhancedJob} = {};
     contractsData.forEach(contract => {
       const job = getJob(contract.job_id);
       if (job) {
