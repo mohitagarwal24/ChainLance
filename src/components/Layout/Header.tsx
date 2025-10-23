@@ -45,16 +45,6 @@ export const Header: React.FC = () => {
                 Find Work
               </Link>
               <Link
-                to="/my-jobs"
-                className={`text-sm font-medium transition-colors ${
-                  location.pathname === '/my-jobs'
-                    ? 'text-blue-400'
-                    : 'text-gray-300 hover:text-blue-400'
-                }`}
-              >
-                My Jobs
-              </Link>
-              <Link
                 to="/contracts"
                 className={`text-sm font-medium transition-colors ${
                   location.pathname === '/contracts'
@@ -218,13 +208,6 @@ export const Header: React.FC = () => {
               className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded-lg"
             >
               Find Work
-            </Link>
-            <Link
-              to="/my-jobs"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded-lg"
-            >
-              My Jobs
             </Link>
             <Link
               to="/contracts"

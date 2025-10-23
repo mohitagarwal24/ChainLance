@@ -34,7 +34,6 @@ function App() {
                   <Route path="/contract/:contractId" element={<ContractDetailPage />} />
                   <Route path="/accept-bid/:jobId/:bidId" element={<AcceptBidPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
-                  <Route path="/my-jobs" element={<JobsPage />} />
                   <Route path="/messages" element={<MessagesPage />} />
                   <Route path="/notifications" element={<NotificationsPage />} />
                   <Route path="/settings" element={<SettingsPage />} />

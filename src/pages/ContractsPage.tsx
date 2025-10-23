@@ -7,9 +7,9 @@ import { useWallet } from '../contexts/WalletContext';
 export const ContractsPage: React.FC = () => {
   const navigate = useNavigate();
   const { walletAddress } = useWallet();
-  const { getContractsForWallet, getJob } = useContractData();
+  const { getContractsForWallet, getJob, refreshContracts } = useContractData();
   const [contracts, setContracts] = useState<EnhancedContract[]>([]);
-  const [contractJobs, setContractJobs] = useState<{[key: string]: EnhancedJob}>({});
+  const [contractJobs, setContractJobs] = useState<{ [key: string]: EnhancedJob }>({});
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'all'>('active');
 
@@ -23,13 +23,21 @@ export const ContractsPage: React.FC = () => {
     if (!walletAddress) return;
 
     setLoading(true);
+
+    console.log(`🔍 ContractsPage: Loading contracts for wallet: ${walletAddress}, tab: ${activeTab}`);
     
+    // First refresh contracts from blockchain
+    console.log(`🔄 ContractsPage: Refreshing contracts from blockchain...`);
+    await refreshContracts();
+    
+    // Then get the filtered contracts
     const statusFilter = activeTab === 'all' ? undefined : activeTab;
     const contractsData = getContractsForWallet(walletAddress, statusFilter);
+    console.log(`📋 ContractsPage: Found ${contractsData.length} contracts:`, contractsData);
     setContracts(contractsData);
-    
+
     // Load job details for each contract
-    const jobs: {[key: string]: EnhancedJob} = {};
+    const jobs: { [key: string]: EnhancedJob } = {};
     contractsData.forEach(contract => {
       const job = getJob(contract.job_id);
       if (job) {
@@ -37,7 +45,7 @@ export const ContractsPage: React.FC = () => {
       }
     });
     setContractJobs(jobs);
-    
+
     setLoading(false);
   };
 
@@ -80,7 +88,7 @@ export const ContractsPage: React.FC = () => {
         </div>
 
         <div className="card p-6 mb-6">
-          <div className="border-b border-gray-200">
+          <div className="border-b border-gray-700">
             <nav className="flex space-x-8 px-6" aria-label="Tabs">
               {[
                 { key: 'active', label: 'Active' },
@@ -90,11 +98,10 @@ export const ContractsPage: React.FC = () => {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === tab.key
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === tab.key
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -122,7 +129,7 @@ export const ContractsPage: React.FC = () => {
         ) : (
           <div className="space-y-4">
             {contracts.map((contract) => {
-              const isClient = contract.client_wallet === walletAddress;
+              const isClient = contract.client_wallet.toLowerCase() === walletAddress?.toLowerCase();
               const role = isClient ? 'Client' : 'Freelancer';
 
               return (

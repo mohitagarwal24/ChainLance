@@ -9,7 +9,7 @@ export const JobDetailPage: React.FC = () => {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const { walletAddress } = useWallet();
-  const { getJob, getJobs, createBid, getBidsForJob, rejectBid, isLoading } = useContractData();
+  const { getJob, getJobs, createBid, getBidsForJob, rejectBid, isLoading, getPYUSDBalance, requestPYUSDFromFaucet } = useContractData();
   const { getProfile } = useData();
   const [job, setJob] = useState<EnhancedJob | null>(null);
   const [bids, setBids] = useState<EnhancedBid[]>([]);
@@ -25,6 +25,36 @@ export const JobDetailPage: React.FC = () => {
     estimated_timeline: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [pyusdBalance, setPyusdBalance] = useState<number>(0);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+
+  // Load PYUSD balance when wallet is connected
+  const loadPYUSDBalance = async () => {
+    if (!walletAddress) return;
+    setLoadingBalance(true);
+    try {
+      const balance = await getPYUSDBalance();
+      setPyusdBalance(balance);
+    } catch (error) {
+      console.error('Error loading PYUSD balance:', error);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
+
+  // Request PYUSD from faucet for testing
+  const handleRequestPYUSD = async () => {
+    if (!walletAddress) return;
+    try {
+      await requestPYUSDFromFaucet();
+      // Reload balance after faucet request
+      setTimeout(loadPYUSDBalance, 2000);
+      alert('PYUSD requested from faucet! Please wait a moment for the transaction to confirm.');
+    } catch (error) {
+      console.error('Error requesting PYUSD:', error);
+      alert('Error requesting PYUSD from faucet');
+    }
+  };
 
   useEffect(() => {
     if (jobId !== undefined && jobId !== null) {
@@ -37,6 +67,13 @@ export const JobDetailPage: React.FC = () => {
     if (jobId !== undefined && jobId !== null && walletAddress) {
       console.log('🔄 Wallet address changed, reloading job details for:', walletAddress);
       loadJobDetails();
+    }
+  }, [walletAddress]);
+
+  // Load balance when wallet address changes
+  useEffect(() => {
+    if (walletAddress) {
+      loadPYUSDBalance();
     }
   }, [walletAddress]);
 
@@ -104,6 +141,14 @@ export const JobDetailPage: React.FC = () => {
 
     const proposedAmount = parseFloat(bidData.proposed_amount);
     const stakeAmount = proposedAmount; // Full bid amount as stake
+
+    // Check if user has sufficient PYUSD balance for stake
+    if (pyusdBalance < stakeAmount) {
+      const needMore = stakeAmount - pyusdBalance;
+      alert(`Insufficient PYUSD balance. You need ${needMore.toFixed(2)} more PYUSD to stake for this bid. Use the faucet to get test tokens.`);
+      setSubmitting(false);
+      return;
+    }
 
     try {
       // Create bid with real contract interaction
@@ -375,7 +420,27 @@ export const JobDetailPage: React.FC = () => {
               )}
 
               {showBidForm && (
-                <form onSubmit={handleSubmitBid} className="space-y-4 border-t border-gray-700 pt-4">
+                <div className="border-t border-gray-700 pt-4">
+                  {/* PYUSD Balance Display */}
+                  <div className="bg-gray-800 rounded-lg p-4 mb-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-300">Your PYUSD Balance</h3>
+                        <p className="text-lg font-semibold text-white">
+                          {loadingBalance ? 'Loading...' : `${pyusdBalance.toFixed(2)} PYUSD`}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRequestPYUSD}
+                        className="btn-secondary text-sm"
+                      >
+                        Get Test PYUSD
+                      </button>
+                    </div>
+                  </div>
+
+                <form onSubmit={handleSubmitBid} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Your Bid Amount (PYUSD) *
@@ -390,9 +455,16 @@ export const JobDetailPage: React.FC = () => {
                       className="input w-full"
                     />
                     {bidData.proposed_amount && (
-                      <p className="text-xs text-yellow-400 mt-1">
-                        ⚠️ Full amount (${parseFloat(bidData.proposed_amount).toFixed(2)}) will be staked and locked until bid resolution
-                      </p>
+                      <div className="mt-2">
+                        <p className="text-xs text-yellow-400">
+                          ⚠️ Full amount (${parseFloat(bidData.proposed_amount).toFixed(2)}) will be staked and locked until bid resolution
+                        </p>
+                        {parseFloat(bidData.proposed_amount) > pyusdBalance && (
+                          <p className="text-xs text-red-400 mt-1">
+                            ❌ Insufficient balance! You need ${(parseFloat(bidData.proposed_amount) - pyusdBalance).toFixed(2)} more PYUSD.
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -426,12 +498,15 @@ export const JobDetailPage: React.FC = () => {
 
                   <button
                     type="submit"
-                    disabled={submitting}
+                    disabled={submitting || (bidData.proposed_amount !== '' && parseFloat(bidData.proposed_amount) > pyusdBalance)}
                     className="btn-primary w-full disabled:opacity-50"
                   >
-                    {submitting ? 'Submitting...' : 'Submit Proposal & Stake'}
+                    {submitting ? 'Submitting...' : 
+                     (bidData.proposed_amount !== '' && parseFloat(bidData.proposed_amount) > pyusdBalance) ? 'Insufficient PYUSD Balance' :
+                     'Submit Proposal & Stake'}
                   </button>
                 </form>
+                </div>
               )}
 
               <div className="border-t border-gray-700 pt-4 space-y-3">

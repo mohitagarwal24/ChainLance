@@ -104,9 +104,9 @@ export class ContractService {
     numberOfMilestones: number;
   }): Promise<string> {
     try {
-      // Calculate escrow deposit (15% of budget)
-      const escrowAmount = formatPYUSDAmount(jobData.budget * 0.15);
-      
+      // Calculate escrow deposit (20% of budget)
+      const escrowAmount = formatPYUSDAmount(jobData.budget * 0.2);
+
       // First approve PYUSD spending
       const approveTx = await this.pyusdToken.approve(
         await this.chainLanceCore.getAddress(),
@@ -141,13 +141,13 @@ export class ContractService {
       console.log(`Fetching job ${jobId} from contract...`);
       const job = await this.chainLanceCore.getJob(jobId);
       console.log(`Raw job data for ID ${jobId}:`, job);
-      
+
       // Check if the job actually exists (has a valid client address)
       if (!job.client || job.client === '0x0000000000000000000000000000000000000000') {
         console.log(`Job ${jobId} does not exist (empty client address)`);
         return null;
       }
-      
+
       const parsedJob = this.parseJobFromContract(job);
       console.log(`Parsed job data for ID ${jobId}:`, parsedJob);
       return parsedJob;
@@ -170,17 +170,26 @@ export class ContractService {
     try {
       console.log('Fetching all jobs from contract...');
       console.log('Contract address:', await this.chainLanceCore.getAddress());
-      
+
+      // First, let's test if the contract is responsive by calling a simple function
+      try {
+        const contractAddress = await this.chainLanceCore.getAddress();
+        console.log('✅ Contract is responsive, address:', contractAddress);
+      } catch (addressError) {
+        console.error('❌ Contract not responsive:', addressError);
+        return [];
+      }
+
       // Use getTotalJobs function (now available in updated contract)
       const totalJobs = await this.chainLanceCore.getTotalJobs();
       const count = Number(totalJobs);
       console.log(`✅ Total jobs from contract: ${count}`);
-      
+
       if (count === 0) {
         console.log('ℹ️ No jobs have been posted to the contract yet');
         return [];
       }
-      
+
       const jobIds: number[] = [];
       for (let i = 1; i <= count; i++) {
         jobIds.push(i);
@@ -189,7 +198,20 @@ export class ContractService {
       return jobIds;
     } catch (error) {
       console.error('❌ Error getting all jobs:', error);
-      console.error('Contract address:', await this.chainLanceCore.getAddress());
+      console.error('Error details:', {
+        message: (error as any).message,
+        code: (error as any).code,
+        data: (error as any).data
+      });
+
+      // Try to get contract address for debugging
+      try {
+        const address = await this.chainLanceCore.getAddress();
+        console.error('Contract address:', address);
+      } catch (addrError) {
+        console.error('Cannot get contract address:', addrError);
+      }
+
       return [];
     }
   }
@@ -198,27 +220,27 @@ export class ContractService {
     try {
       const allJobIds = await this.getAllJobs();
       console.log('🔍 Fetching jobs for IDs:', allJobIds);
-      
+
       const jobs = await Promise.all(
         allJobIds.map(async (id) => {
           const job = await this.getJob(id);
           return job;
         })
       );
-      
+
       console.log('📋 All fetched jobs:', jobs.map(j => j ? { id: j.id, status: j.status, title: j.title } : null));
-      
+
       // Filter for open jobs only - check what status values we're getting
       const openJobs = jobs.filter((job): job is ContractJob => {
         if (!job) {
           console.log('❌ Null job found');
           return false;
         }
-        
+
         console.log(`🔍 Job ${job.id} status check: ${job.status} (looking for status 0 = open)`);
         return job.status === 0; // 0 = open status in enum JobStatus { Open, InProgress, Completed, Cancelled, Disputed }
       });
-      
+
       console.log('✅ Filtered open jobs:', openJobs.length);
       return openJobs;
     } catch (error) {
@@ -236,9 +258,9 @@ export class ContractService {
     proposedMilestones: string[];
   }): Promise<string> {
     try {
-      // Calculate stake amount (10% of proposed amount)
-      const stakeAmount = formatPYUSDAmount(bidData.proposedAmount * 0.1);
-      
+      // Calculate stake amount (100% of proposed amount - full bid staking)
+      const stakeAmount = formatPYUSDAmount(bidData.proposedAmount);
+
       // First approve PYUSD spending for stake
       const approveTx = await this.pyusdToken.approve(
         await this.chainLanceCore.getAddress(),
@@ -257,8 +279,22 @@ export class ContractService {
 
       const receipt = await tx.wait();
       return receipt.hash;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error placing bid:', error);
+
+      // Handle specific error types
+      if (error.code === 4100) {
+        throw new Error('Transaction was rejected by user or MetaMask. Please try again and approve the transaction.');
+      } else if (error.code === 4001) {
+        throw new Error('Transaction was rejected by user.');
+      } else if (error.code === -32603) {
+        throw new Error('Internal error. Please check your network connection and try again.');
+      } else if (error.message?.includes('insufficient funds')) {
+        throw new Error('Insufficient PYUSD balance to place bid. You need the full bid amount as stake.');
+      } else if (error.message?.includes('network')) {
+        throw new Error('Please make sure you are connected to Sepolia testnet.');
+      }
+
       throw error;
     }
   }
@@ -289,7 +325,7 @@ export class ContractService {
     try {
       console.log(`🔍 Fetching all bids with details for job ${jobId}...`);
       const bidIds = await this.getJobBids(jobId);
-      
+
       if (bidIds.length === 0) {
         console.log(`ℹ️ No bids found for job ${jobId}`);
         return [];
@@ -314,20 +350,61 @@ export class ContractService {
 
   async getUserBids(userAddress: string): Promise<number[]> {
     try {
-      return await this.chainLanceCore.getUserBids(userAddress);
+      console.log(`🔍 Fetching bids for user: ${userAddress}`);
+      const result = await this.chainLanceCore.getUserBids(userAddress);
+      console.log(`✅ User bids result:`, result);
+      return result;
     } catch (error) {
       console.error('Error getting user bids:', error);
+      console.error('Error details:', {
+        message: (error as any).message,
+        code: (error as any).code,
+        data: (error as any).data
+      });
+      // Return empty array if no bids found (this is normal for new users)
       return [];
     }
   }
 
-  async acceptBid(bidId: number): Promise<string> {
+  async acceptBid(bidId: number, jobBudget: number): Promise<string> {
     try {
+      // Calculate remaining escrow needed (80% of job budget)
+      // Client already deposited 20% when posting job, now needs 80% more
+      const remainingEscrow = formatPYUSDAmount(jobBudget * 0.8);
+
+      console.log(`💰 Approving ${jobBudget * 0.8} PYUSD for remaining escrow`);
+
+      // First approve PYUSD spending for remaining escrow
+      const approveTx = await this.pyusdToken.approve(
+        await this.chainLanceCore.getAddress(),
+        remainingEscrow
+      );
+      await approveTx.wait();
+      console.log('✅ PYUSD approval completed');
+
+      // Accept the bid (contract will pull the approved PYUSD)
+      console.log(`🤝 Accepting bid ${bidId}`);
       const tx = await this.chainLanceCore.acceptBid(bidId);
       const receipt = await tx.wait();
+      console.log('✅ Bid accepted successfully');
+
       return receipt.hash;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error accepting bid:', error);
+
+      // Handle specific error types
+      if (error.code === 4100) {
+        throw new Error('Transaction was rejected by user or MetaMask. Please try again and approve the transaction.');
+      } else if (error.code === 4001) {
+        throw new Error('Transaction was rejected by user.');
+      } else if (error.message?.includes('insufficient funds')) {
+        throw new Error('Insufficient PYUSD balance to fund the contract. You need 80% of the job budget.');
+      } else if (error.message?.includes('execution reverted')) {
+        throw new Error('Smart contract rejected the transaction. Please check that the bid is still valid and you have sufficient balance.');
+      } else if (error.message?.includes('network')) {
+        throw new Error('Please make sure you are connected to Sepolia testnet.');
+      }
+
       throw error;
     }
   }
@@ -346,19 +423,43 @@ export class ContractService {
   // Contract Management
   async getContract(contractId: number): Promise<ContractFreelanceContract | null> {
     try {
+      console.log(`🔍 Fetching contract details for ID: ${contractId}`);
       const contract = await this.chainLanceCore.getContract(contractId);
-      return this.parseContractFromContract(contract);
+      console.log(`📄 Raw contract data for ID ${contractId}:`, contract);
+      
+      if (!contract) {
+        console.log(`❌ Contract ${contractId} returned null/undefined`);
+        return null;
+      }
+      
+      const parsed = this.parseContractFromContract(contract);
+      console.log(`✅ Parsed contract data for ID ${contractId}:`, parsed);
+      return parsed;
     } catch (error) {
-      console.error('Error getting contract:', error);
+      console.error(`❌ Error getting contract ${contractId}:`, error);
+      console.error('Error details:', {
+        message: (error as any).message,
+        code: (error as any).code,
+        data: (error as any).data
+      });
       return null;
     }
   }
 
   async getUserContracts(userAddress: string): Promise<number[]> {
     try {
-      return await this.chainLanceCore.getUserContracts(userAddress);
+      console.log(`🔍 Fetching contracts for user: ${userAddress}`);
+      const result = await this.chainLanceCore.getUserContracts(userAddress);
+      console.log(`✅ User contracts result:`, result);
+      return result;
     } catch (error) {
       console.error('Error getting user contracts:', error);
+      console.error('Error details:', {
+        message: (error as any).message,
+        code: (error as any).code,
+        data: (error as any).data
+      });
+      // Return empty array if no contracts found (this is normal for new users)
       return [];
     }
   }

@@ -123,6 +123,31 @@
       {
         "indexed": true,
         "internalType": "uint256",
+        "name": "bidId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "jobId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "freelancer",
+        "type": "address"
+      }
+    ],
+    "name": "BidRejected",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
         "name": "contractId",
         "type": "uint256"
       },
@@ -313,7 +338,7 @@
   },
   {
     "inputs": [],
-    "name": "MAX_ESCROW_DEPOSIT",
+    "name": "INITIAL_ESCROW_DEPOSIT",
     "outputs": [
       {
         "internalType": "uint256",
@@ -327,19 +352,6 @@
   {
     "inputs": [],
     "name": "MAX_PLATFORM_FEE",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "MIN_ESCROW_DEPOSIT",
     "outputs": [
       {
         "internalType": "uint256",
@@ -1367,6 +1379,19 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_bidId",
+        "type": "uint256"
+      }
+    ],
+    "name": "rejectBid",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {

@@ -516,7 +516,7 @@ export const PostJobPage: React.FC = () => {
                         <div>
                           <div className="font-semibold text-blue-300 mb-1">Escrow Deposit Required</div>
                           <div className="text-sm text-blue-400">
-                            ${(parseFloat(formData.budget) * 0.15).toFixed(2)} PYUSD will be locked in escrow when you post this job.
+                            ${(parseFloat(formData.budget) * 0.2).toFixed(2)} PYUSD will be locked in escrow when you post this job.
                             This is fully refundable if you cancel before accepting any bids.
                           </div>
                         </div>
@@ -545,11 +545,11 @@ export const PostJobPage: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={submitting || pyusdBalance < (parseFloat(formData.budget) * 0.15)}
+                    disabled={submitting || pyusdBalance < (parseFloat(formData.budget) * 0.2)}
                     className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? 'Posting...' : 
-                     pyusdBalance < (parseFloat(formData.budget) * 0.15) ? 'Insufficient PYUSD Balance' :
+                     pyusdBalance < (parseFloat(formData.budget) * 0.2) ? 'Insufficient PYUSD Balance' :
                      'Post Job & Pay Escrow'}
                   </button>
                 </div>

@@ -74,7 +74,7 @@ export const AcceptBidPage: React.FC = () => {
 
     // Calculate remaining escrow needed (80% of bid amount)
     // Client already deposited 20% of job budget, now needs 80% of accepted bid
-    const remainingEscrow = bid.proposed_amount * 0.8;
+    const remainingEscrow = job.budget * 0.8;
     
     // Check if user has sufficient PYUSD balance
     if (pyusdBalance < remainingEscrow) {
@@ -84,7 +84,7 @@ export const AcceptBidPage: React.FC = () => {
 
     setAccepting(true);
     try {
-      await acceptBid(String(bidId));
+      await acceptBid(String(bidId), job.budget);
       alert('Bid accepted successfully! The contract has been created and funds are now in escrow.');
       navigate('/contracts');
     } catch (error) {
@@ -146,7 +146,7 @@ export const AcceptBidPage: React.FC = () => {
   }
 
   const initialDeposit = job.budget * 0.2; // 20% initial deposit
-  const remainingEscrow = bid.proposed_amount * 0.8; // 80% of bid amount
+  const remainingEscrow = job.budget * 0.8; // 80% of bid amount
   const hasEnoughBalance = pyusdBalance >= remainingEscrow;
 
   return (
@@ -240,7 +240,7 @@ export const AcceptBidPage: React.FC = () => {
                   ${bid.proposed_amount.toLocaleString()}
                 </div>
                 <div className="text-sm text-gray-400">
-                  Stake: ${bid.stake_amount.toFixed(2)} (10%)
+                  Stake: ${bid.stake_amount.toFixed(2)} (100% - Full Amount)
                 </div>
               </div>
               
@@ -266,8 +266,8 @@ export const AcceptBidPage: React.FC = () => {
             <h3 className="text-lg font-semibold text-blue-300 mb-4">Payment Breakdown</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-blue-200">Initial Escrow Deposit (15%):</span>
-                <span className="text-white font-medium">${(job.budget * 0.15).toFixed(2)}</span>
+                <span className="text-blue-200">Initial Escrow Deposit (20%):</span>
+                <span className="text-white font-medium">${initialDeposit.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-blue-200">Additional Escrow Required:</span>
@@ -275,8 +275,8 @@ export const AcceptBidPage: React.FC = () => {
               </div>
               <div className="border-t border-blue-700 pt-2">
                 <div className="flex justify-between">
-                  <span className="text-blue-200 font-medium">Total Contract Value:</span>
-                  <span className="text-white font-bold text-lg">${bid.proposed_amount.toLocaleString()}</span>
+                  <span className="text-blue-200 font-medium">Total Task Value:</span>
+                  <span className="text-white font-bold text-lg">${job.budget.toLocaleString()}</span>
                 </div>
               </div>
             </div>

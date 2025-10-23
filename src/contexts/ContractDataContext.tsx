@@ -60,32 +60,32 @@ interface ContractDataContextType {
   jobs: EnhancedJob[];
   bids: EnhancedBid[];
   contracts: EnhancedContract[];
-  
+
   // Loading states
   isLoading: boolean;
-  
+
   // Service instance
   contractService: ContractService | null;
-  
+
   // Job methods
   getJobs: (filters?: { category?: string; contract_type?: string; budget_range?: string; status?: string }) => EnhancedJob[];
   getJob: (jobId: string) => EnhancedJob | null;
   createJob: (jobData: any) => Promise<EnhancedJob>;
   refreshJobs: () => Promise<void>;
-  
+
   // Bid methods
   getBidsForJob: (jobId: string) => Promise<EnhancedBid[]>;
   getBidsForFreelancer: (freelancerWallet: string) => EnhancedBid[];
   createBid: (bidData: any) => Promise<EnhancedBid>;
-  acceptBid: (bidId: string) => Promise<void>;
+  acceptBid: (bidId: string, jobBudget: number) => Promise<void>;
   rejectBid: (bidId: string) => Promise<void>;
   refreshBids: () => Promise<void>;
-  
+
   // Contract methods
   getContractsForWallet: (walletAddress: string, status?: string) => EnhancedContract[];
   getContract: (contractId: string) => EnhancedContract | null;
   refreshContracts: () => Promise<void>;
-  
+
   // Token operations
   getPYUSDBalance: () => Promise<number>;
   requestPYUSDFromFaucet: () => Promise<void>;
@@ -107,7 +107,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [contracts, setContracts] = useState<EnhancedContract[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [contractService, setContractService] = useState<ContractService | null>(null);
-  
+
   const { contracts: web3Contracts, isInitialized } = useWeb3();
   const { walletAddress } = useWallet();
 
@@ -160,16 +160,16 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.log('Contract service not available, skipping job refresh');
       return;
     }
-    
+
     try {
       console.log('Starting job refresh...');
       // Get all open jobs from the blockchain
       const openJobs = await contractService.getOpenJobs();
       console.log('Open jobs from contract:', openJobs);
-      
+
       const enhancedJobs = openJobs.map(job => convertContractJobToEnhanced(job));
       console.log('Enhanced jobs:', enhancedJobs);
-      
+
       setJobs(enhancedJobs);
       console.log('Jobs state updated with', enhancedJobs.length, 'jobs');
     } catch (error) {
@@ -180,7 +180,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const getJobs = (filters?: { category?: string; contract_type?: string; budget_range?: string; status?: string }): EnhancedJob[] => {
     console.log('🔍 Getting jobs with filters:', filters);
     console.log('📊 Total jobs in state:', jobs.length);
-    
+
     let filteredJobs = [...jobs];
     console.log('📋 Jobs before filtering:', filteredJobs.map(j => ({ id: j.id, title: j.title, status: j.status })));
 
@@ -224,10 +224,10 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const createJob = async (jobData: any): Promise<EnhancedJob> => {
     if (!contractService) throw new Error('Contract service not initialized');
-    
+
     try {
       const contractTypeMap = { 'fixed': 0, 'hourly': 1, 'milestone': 2 };
-      
+
       await contractService.postJob({
         title: jobData.title,
         description: jobData.description,
@@ -243,7 +243,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       // Refresh jobs to get the new job
       await refreshJobs();
-      
+
       // Return the newly created job (this is a simplified approach)
       const newJob = jobs[jobs.length - 1];
       return newJob;
@@ -260,7 +260,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setBids([]);
       return;
     }
-    
+
     try {
       const userBidIds = await contractService.getUserBids(walletAddress);
       const userBids = await Promise.all(
@@ -269,7 +269,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
           return bid ? convertContractBidToEnhanced(bid) : null;
         })
       );
-      
+
       setBids(userBids.filter(Boolean) as EnhancedBid[]);
     } catch (error) {
       console.error('Error refreshing bids:', error);
@@ -281,15 +281,15 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.log('❌ Contract service not available for fetching job bids');
       return [];
     }
-    
+
     try {
       console.log(`🔍 Fetching bids for job ${jobId}...`);
       const jobBids = await contractService.getJobBidsWithDetails(parseInt(jobId));
       console.log(`📋 Raw job bids from contract:`, jobBids);
-      
+
       const enhancedBids = jobBids.map(bid => convertContractBidToEnhanced(bid));
       console.log(`✅ Enhanced bids for job ${jobId}:`, enhancedBids);
-      
+
       return enhancedBids.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     } catch (error) {
       console.error(`❌ Error fetching bids for job ${jobId}:`, error);
@@ -304,7 +304,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const createBid = async (bidData: any): Promise<EnhancedBid> => {
     if (!contractService) throw new Error('Contract service not initialized');
-    
+
     try {
       await contractService.placeBid({
         jobId: parseInt(bidData.job_id),
@@ -316,10 +316,10 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       // Refresh bids to get the new bid
       await refreshBids();
-      
+
       // Also refresh jobs to update bid count
       await refreshJobs();
-      
+
       // Return the newly created bid
       const newBid = bids[bids.length - 1];
       return newBid;
@@ -329,12 +329,29 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  const acceptBid = async (bidId: string): Promise<void> => {
+  const acceptBid = async (bidId: string, jobBudget: number): Promise<void> => {
     if (!contractService) throw new Error('Contract service not initialized');
-    
+
     try {
-      await contractService.acceptBid(parseInt(bidId));
-      
+      await contractService.acceptBid(parseInt(bidId), jobBudget);
+
+      // Find the accepted bid to get job info
+      const bidIdNumber = parseInt(bidId);
+      const acceptedBid = bids.find(bid => bid.id === bidIdNumber);
+      if (acceptedBid) {
+        // Update job status to "in_progress" (no longer available for bidding)
+        const updatedJobs = jobs.map(job =>
+          job.id === parseInt(acceptedBid.job_id)
+            ? { ...job, status: 'in_progress' as const }
+            : job
+        );
+        setJobs(updatedJobs);
+
+        // Remove all bids for this job (since it's now closed)
+        const filteredBids = bids.filter(bid => bid.job_id !== acceptedBid.job_id);
+        setBids(filteredBids);
+      }
+
       // Refresh data to reflect changes
       await Promise.all([refreshBids(), refreshContracts()]);
     } catch (error) {
@@ -345,10 +362,14 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const rejectBid = async (bidId: string): Promise<void> => {
     if (!contractService) throw new Error('Contract service not initialized');
-    
+
     try {
       await contractService.rejectBid(parseInt(bidId));
-      
+
+      // Remove the rejected bid from the local state
+      const filteredBids = bids.filter(bid => bid.id !== parseInt(bidId));
+      setBids(filteredBids);
+
       // Refresh data to reflect changes
       await refreshBids();
     } catch (error) {
@@ -364,37 +385,80 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setContracts([]);
       return;
     }
-    
+
     try {
+      console.log(`🔄 Refreshing contracts for wallet: ${walletAddress}`);
       const userContractIds = await contractService.getUserContracts(walletAddress);
+      console.log(`📋 Found contract IDs:`, userContractIds);
+      
+      if (userContractIds.length === 0) {
+        console.log(`⚠️ No contract IDs found for wallet ${walletAddress}`);
+        setContracts([]);
+        return;
+      }
+      
       const userContracts = await Promise.all(
         userContractIds.map(async (id) => {
+          console.log(`📄 Processing contract ID: ${id}`);
           const contract = await contractService.getContract(id);
-          return contract ? convertContractToEnhanced(contract) : null;
+          
+          if (contract) {
+            console.log(`✅ Contract ${id} fetched successfully:`, contract);
+            try {
+              const enhanced = convertContractToEnhanced(contract);
+              console.log(`✅ Enhanced contract ${id}:`, enhanced);
+              return enhanced;
+            } catch (conversionError) {
+              console.error(`❌ Error converting contract ${id}:`, conversionError);
+              return null;
+            }
+          } else {
+            console.log(`❌ Failed to fetch contract ${id}`);
+            return null;
+          }
         })
       );
-      
-      setContracts(userContracts.filter(Boolean) as EnhancedContract[]);
+
+      const validContracts = userContracts.filter(Boolean) as EnhancedContract[];
+      console.log(`✅ Setting ${validContracts.length} contracts in state:`, validContracts);
+      setContracts(validContracts);
     } catch (error) {
       console.error('Error refreshing contracts:', error);
+      console.error('Error details:', error);
     }
   };
 
   const getContractsForWallet = (walletAddress: string, status?: string): EnhancedContract[] => {
-    let filteredContracts = contracts.filter(contract => 
-      contract.client_wallet === walletAddress || contract.freelancer_wallet === walletAddress
-    );
+    console.log(`🔍 getContractsForWallet called with wallet: ${walletAddress}, status: ${status}`);
+    console.log(`📋 Total contracts in state: ${contracts.length}`, contracts);
+    
+    let filteredContracts = contracts.filter(contract => {
+      const isClientOrFreelancer = 
+        contract.client_wallet.toLowerCase() === walletAddress.toLowerCase() || 
+        contract.freelancer_wallet.toLowerCase() === walletAddress.toLowerCase();
+      console.log(`🔍 Contract ${contract.id}: client=${contract.client_wallet}, freelancer=${contract.freelancer_wallet}, wallet=${walletAddress}, matches=${isClientOrFreelancer}`);
+      return isClientOrFreelancer;
+    });
+    
+    console.log(`📋 After wallet filter: ${filteredContracts.length} contracts`, filteredContracts);
 
     if (status) {
       if (status === 'active') {
-        filteredContracts = filteredContracts.filter(contract => 
-          contract.status === 'pending' || contract.status === 'active'
-        );
+        filteredContracts = filteredContracts.filter(contract => {
+          const isActive = contract.status === 'pending' || contract.status === 'active';
+          console.log(`🔍 Contract ${contract.id} status: ${contract.status}, isActive: ${isActive}`);
+          return isActive;
+        });
       } else {
-        filteredContracts = filteredContracts.filter(contract => contract.status === status);
+        filteredContracts = filteredContracts.filter(contract => {
+          const matchesStatus = contract.status === status;
+          console.log(`🔍 Contract ${contract.id} status: ${contract.status}, matches ${status}: ${matchesStatus}`);
+          return matchesStatus;
+        });
       }
     }
-
+    
+    console.log(`📋 Final filtered contracts: ${filteredContracts.length}`, filteredContracts);
     return filteredContracts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   };
 
@@ -419,7 +483,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // Contract enum: JobStatus { Open, InProgress, Completed, Cancelled, Disputed } = [0, 1, 2, 3, 4]
     const statusMap = ['open', 'in_progress', 'completed', 'cancelled', 'disputed'] as const;
     const experienceLevelMap = ['beginner', 'intermediate', 'expert'] as const;
-    
+
     console.log('🔄 Converting job:', {
       id: job.id,
       title: job.title,
@@ -427,7 +491,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
       rawContractType: job.contractType,
       client: job.client
     });
-    
+
     const enhancedJob = {
       ...job,
       id: job.id, // Keep as number
@@ -445,20 +509,20 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
       created_at: new Date(job.createdAt * 1000).toISOString(),
       updated_at: new Date(job.updatedAt * 1000).toISOString(),
     };
-    
+
     console.log('✅ Enhanced job:', {
       id: enhancedJob.id,
       title: enhancedJob.title,
       status: enhancedJob.status,
       contract_type: enhancedJob.contract_type
     });
-    
+
     return enhancedJob;
   };
 
   const convertContractBidToEnhanced = (bid: ContractBid): EnhancedBid => {
     const statusMap = ['pending', 'accepted', 'rejected', 'withdrawn'] as const;
-    
+
     return {
       id: bid.id,
       jobId: bid.jobId,
@@ -486,7 +550,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const convertContractToEnhanced = (contract: ContractFreelanceContract): EnhancedContract => {
     const contractTypeMap = ['fixed', 'hourly', 'milestone'] as const;
     const statusMap = ['pending', 'active', 'completed', 'cancelled', 'disputed'] as const;
-    
+
     return {
       id: contract.id,
       job_id: contract.jobId.toString(),
