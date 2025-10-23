@@ -275,9 +275,39 @@ export class ContractService {
 
   async getJobBids(jobId: number): Promise<number[]> {
     try {
-      return await this.chainLanceCore.getJobBids(jobId);
+      console.log(`🔍 Fetching bid IDs for job ${jobId}...`);
+      const bidIds = await this.chainLanceCore.getJobBids(jobId);
+      console.log(`📋 Found ${bidIds.length} bid IDs for job ${jobId}:`, bidIds.map((id: any) => Number(id)));
+      return bidIds.map((id: any) => Number(id));
     } catch (error) {
       console.error('Error getting job bids:', error);
+      return [];
+    }
+  }
+
+  async getJobBidsWithDetails(jobId: number): Promise<ContractBid[]> {
+    try {
+      console.log(`🔍 Fetching all bids with details for job ${jobId}...`);
+      const bidIds = await this.getJobBids(jobId);
+      
+      if (bidIds.length === 0) {
+        console.log(`ℹ️ No bids found for job ${jobId}`);
+        return [];
+      }
+
+      const bids = await Promise.all(
+        bidIds.map(async (bidId) => {
+          console.log(`📋 Fetching bid details for bid ID ${bidId}...`);
+          const bid = await this.getBid(bidId);
+          return bid;
+        })
+      );
+
+      const validBids = bids.filter((bid): bid is ContractBid => bid !== null);
+      console.log(`✅ Successfully fetched ${validBids.length} bids for job ${jobId}`);
+      return validBids;
+    } catch (error) {
+      console.error(`❌ Error getting job bids with details for job ${jobId}:`, error);
       return [];
     }
   }

@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, Clock, MapPin, Award } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useContractData, EnhancedJob, EnhancedBid } from '../contexts/ContractDataContext';
 import { useWallet } from '../contexts/WalletContext';
 import { useData, Profile } from '../contexts/DataContext';
 
-interface JobDetailPageProps {
-  jobId: string | number;
-  onNavigate: (page: string, data?: any) => void;
-}
-
-export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate }) => {
+export const JobDetailPage: React.FC = () => {
+  const { jobId } = useParams<{ jobId: string }>();
+  const navigate = useNavigate();
   const { walletAddress } = useWallet();
   const { getJob, getJobs, createBid, getBidsForJob, isLoading } = useContractData();
   const { getProfile } = useData();
@@ -59,7 +57,7 @@ export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate 
         setClient(clientProfile);
 
         // Load bids for this job
-        const jobBids = getBidsForJob(jobIdString);
+        const jobBids = await getBidsForJob(jobIdString);
         setBids(jobBids);
 
         // Load profiles for all bidders
@@ -170,7 +168,7 @@ export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate 
           Available jobs: {allJobs.length > 0 ? allJobs.map(j => j.id).join(', ') : 'None'}
         </p>
         <button
-          onClick={() => onNavigate('jobs')}
+          onClick={() => navigate('/jobs')}
           className="btn-primary"
         >
           Back to Find Work
@@ -197,7 +195,7 @@ export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate 
     <div className="min-h-screen py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <button
-          onClick={() => onNavigate('jobs')}
+          onClick={() => navigate('/jobs')}
           className="flex items-center gap-2 text-gray-400 hover:text-white mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -292,7 +290,7 @@ export const JobDetailPage: React.FC<JobDetailPageProps> = ({ jobId, onNavigate 
                           </span>
                           {bid.status === 'pending' && (
                             <button
-                              onClick={() => onNavigate('accept-bid', { jobId: job.id, bidId: bid.id })}
+                              onClick={() => navigate(`/accept-bid/${job.id}/${bid.id}`)}
                               className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
                             >
                               Accept Proposal

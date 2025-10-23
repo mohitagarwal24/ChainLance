@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, Bell, User, Search, Menu, X, LogOut, ChevronDown, RefreshCw } from 'lucide-react';
+import { Briefcase, Bell, User, Menu, X, LogOut, RefreshCw } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useWallet } from '../../contexts/WalletContext';
 
-interface HeaderProps {
-  onNavigate: (page: string) => void;
-  currentPage: string;
-}
-
-export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
+export const Header: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { walletAddress, connectWallet, disconnectWallet, userProfile, isConnecting, availableAccounts, switchAccount, refreshAccounts } = useWallet();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   useEffect(() => {
     if (walletAddress && availableAccounts.length === 0) {
@@ -28,55 +25,55 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
-            <button
-              onClick={() => onNavigate('home')}
+            <Link
+              to="/"
               className="flex items-center space-x-2 text-xl font-bold gradient-text hover:scale-105 transition-transform duration-200"
             >
               <Briefcase className="w-7 h-7 text-blue-500" />
               <span>ChainLance</span>
-            </button>
+            </Link>
 
             <nav className="hidden md:flex space-x-6">
-              <button
-                onClick={() => onNavigate('jobs')}
+              <Link
+                to="/jobs"
                 className={`text-sm font-medium transition-colors ${
-                  currentPage === 'jobs'
+                  location.pathname === '/jobs'
                     ? 'text-blue-400'
                     : 'text-gray-300 hover:text-blue-400'
                 }`}
               >
                 Find Work
-              </button>
-              <button
-                onClick={() => onNavigate('my-jobs')}
+              </Link>
+              <Link
+                to="/my-jobs"
                 className={`text-sm font-medium transition-colors ${
-                  currentPage === 'my-jobs'
+                  location.pathname === '/my-jobs'
                     ? 'text-blue-400'
                     : 'text-gray-300 hover:text-blue-400'
                 }`}
               >
                 My Jobs
-              </button>
-              <button
-                onClick={() => onNavigate('contracts')}
+              </Link>
+              <Link
+                to="/contracts"
                 className={`text-sm font-medium transition-colors ${
-                  currentPage === 'contracts'
+                  location.pathname === '/contracts'
                     ? 'text-blue-400'
                     : 'text-gray-300 hover:text-blue-400'
                 }`}
               >
                 Contracts
-              </button>
-              <button
-                onClick={() => onNavigate('messages')}
+              </Link>
+              <Link
+                to="/messages"
                 className={`text-sm font-medium transition-colors ${
-                  currentPage === 'messages'
+                  location.pathname === '/messages'
                     ? 'text-blue-400'
                     : 'text-gray-300 hover:text-blue-400'
                 }`}
               >
                 Messages
-              </button>
+              </Link>
             </nav>
           </div>
 
@@ -84,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
             {walletAddress ? (
               <>
                 <button
-                  onClick={() => onNavigate('notifications')}
+                  onClick={() => navigate('/notifications')}
                   className="p-2 text-gray-400 hover:text-blue-400 hover:bg-gray-800 rounded-lg transition-colors relative"
                 >
                   <Bell className="w-5 h-5" />
@@ -108,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
                     <div className="absolute right-0 mt-2 w-64 card rounded-lg shadow-2xl py-2 z-50">
                       <button
                         onClick={() => {
-                          onNavigate('profile');
+                          navigate('/profile');
                           setUserMenuOpen(false);
                         }}
                         className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-800 flex items-center space-x-2"
@@ -118,7 +115,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
                       </button>
                       <button
                         onClick={() => {
-                          onNavigate('settings');
+                          navigate('/settings');
                           setUserMenuOpen(false);
                         }}
                         className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-800"
@@ -186,7 +183,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
                 </div>
 
                 <button
-                  onClick={() => onNavigate('post-job')}
+                  onClick={() => navigate('/post-job')}
                   className="hidden md:block px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   Post a Job
@@ -215,46 +212,38 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, currentPage }) => {
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-800 glass">
           <nav className="px-4 py-4 space-y-2">
-            <button
-              onClick={() => {
-                onNavigate('jobs');
-                setMobileMenuOpen(false);
-              }}
+            <Link
+              to="/jobs"
+              onClick={() => setMobileMenuOpen(false)}
               className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded-lg"
             >
               Find Work
-            </button>
-            <button
-              onClick={() => {
-                onNavigate('my-jobs');
-                setMobileMenuOpen(false);
-              }}
+            </Link>
+            <Link
+              to="/my-jobs"
+              onClick={() => setMobileMenuOpen(false)}
               className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded-lg"
             >
               My Jobs
-            </button>
-            <button
-              onClick={() => {
-                onNavigate('contracts');
-                setMobileMenuOpen(false);
-              }}
+            </Link>
+            <Link
+              to="/contracts"
+              onClick={() => setMobileMenuOpen(false)}
               className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded-lg"
             >
               Contracts
-            </button>
-            <button
-              onClick={() => {
-                onNavigate('messages');
-                setMobileMenuOpen(false);
-              }}
+            </Link>
+            <Link
+              to="/messages"
+              onClick={() => setMobileMenuOpen(false)}
               className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 rounded-lg"
             >
               Messages
-            </button>
+            </Link>
             {walletAddress && (
               <button
                 onClick={() => {
-                  onNavigate('post-job');
+                  navigate('/post-job');
                   setMobileMenuOpen(false);
                 }}
                 className="btn-primary w-full"

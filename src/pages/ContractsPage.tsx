@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { FileText, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useContractData, EnhancedContract, EnhancedJob } from '../contexts/ContractDataContext';
 import { useWallet } from '../contexts/WalletContext';
 
-interface ContractsPageProps {
-  onNavigate: (page: string, data?: any) => void;
-}
-
-export const ContractsPage: React.FC<ContractsPageProps> = ({ onNavigate }) => {
+export const ContractsPage: React.FC = () => {
+  const navigate = useNavigate();
   const { walletAddress } = useWallet();
   const { getContractsForWallet, getJob } = useContractData();
   const [contracts, setContracts] = useState<EnhancedContract[]>([]);
@@ -115,7 +113,7 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({ onNavigate }) => {
             <h3 className="text-xl font-semibold text-white mb-2">No contracts found</h3>
             <p className="text-gray-400">You don't have any contracts yet. Start by browsing jobs or posting a project.</p>
             <button
-              onClick={() => onNavigate('jobs')}
+              onClick={() => navigate('/jobs')}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
             >
               Browse Jobs
@@ -130,7 +128,7 @@ export const ContractsPage: React.FC<ContractsPageProps> = ({ onNavigate }) => {
               return (
                 <div
                   key={contract.id}
-                  onClick={() => onNavigate('contract-detail', { contractId: contract.id })}
+                  onClick={() => navigate(`/contract/${contract.id}`)}
                   className="card card-hover p-6 cursor-pointer"
                 >
                   <div className="flex justify-between items-start mb-4">

@@ -1,21 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Search, Clock, Briefcase } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useContractData, EnhancedJob } from '../contexts/ContractDataContext';
 import { NetworkStatus } from '../components/NetworkStatus';
 
-
-interface JobsPageProps {
-  onNavigate: (page: string, data?: any) => void;
-}
-
-export const JobsPage: React.FC<JobsPageProps> = ({ onNavigate }) => {
+export const JobsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState<EnhancedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedContractType, setSelectedContractType] = useState('all');
   const [budgetRange, setBudgetRange] = useState('all');
-  const { getJobs, isLoading } = useContractData();
+  const { getJobs } = useContractData();
 
 
   useEffect(() => {
@@ -153,7 +150,7 @@ export const JobsPage: React.FC<JobsPageProps> = ({ onNavigate }) => {
             {filteredJobs.map((job) => (
               <div
                 key={job.id}
-                onClick={() => onNavigate('job-detail', { jobId: job.id })}
+                onClick={() => navigate(`/job/${job.id}`)}
                 className="card card-hover p-6 cursor-pointer"
               >
                 <div className="flex justify-between items-start mb-4">

@@ -1,28 +1,26 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Plus, X, DollarSign } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useContractData } from '../contexts/ContractDataContext';
 import { useWallet } from '../contexts/WalletContext';
 import { NetworkStatus } from '../components/NetworkStatus';
 
-interface PostJobPageProps {
-  onNavigate: (page: string) => void;
-}
-
-export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
+export const PostJobPage: React.FC = () => {
+  const navigate = useNavigate();
   const { walletAddress } = useWallet();
   const { createJob, getPYUSDBalance, requestPYUSDFromFaucet } = useContractData();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    title: 'Build a DeFi Dashboard with Real-time Analytics',
-    description: 'Looking for an experienced React developer to build a comprehensive DeFi dashboard that displays portfolio analytics, yield farming opportunities, and real-time market data. The project includes user authentication, data visualization charts, and smart contract interactions.',
+    title: '',
+    description: '',
     category: 'Web Development',
-    required_skills: ['React', 'TypeScript', 'Web3', 'DeFi', 'TailwindCSS'] as string[],
-    budget: '5000',
-    contract_type: 'milestone',
-    experience_level: 'expert',
-    project_duration: '6-8 weeks',
-    deadline: '2024-12-31',
-    number_of_milestones: 4,
+    required_skills: [] as string[],
+    budget: '',
+    contract_type: 'fixed',
+    experience_level: 'intermediate',
+    project_duration: '',
+    deadline: '',
+    number_of_milestones: 1,
   });
   const [skillInput, setSkillInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -116,7 +114,7 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
       alert('Job posted successfully! The escrow deposit has been locked in the smart contract.');
       // Reload balance after successful job posting
       loadPYUSDBalance();
-      onNavigate('my-jobs');
+      navigate('/my-jobs');
     } catch (error: any) {
       console.error('Error posting job:', error);
       if (error.message?.includes('insufficient funds')) {
@@ -135,7 +133,7 @@ export const PostJobPage: React.FC<PostJobPageProps> = ({ onNavigate }) => {
     <div className="min-h-screen py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <button
-          onClick={() => onNavigate('home')}
+          onClick={() => navigate('/')}
           className="flex items-center gap-2 text-gray-400 hover:text-white mb-6"
         >
           <ArrowLeft className="w-5 h-5" />

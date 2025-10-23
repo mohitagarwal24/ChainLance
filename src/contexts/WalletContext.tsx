@@ -80,7 +80,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
 
       // If the user selected the desired account in MetaMask, use it
-      const selectedAddress = accounts.find(acc => acc.toLowerCase() === address.toLowerCase()) || accounts[0];
+      const selectedAddress = accounts.find((acc: any) => acc.toLowerCase() === address.toLowerCase()) || accounts[0];
       
       console.log('✅ Account switched successfully to:', selectedAddress);
       setWalletAddress(selectedAddress);

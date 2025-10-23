@@ -1,14 +1,12 @@
 import { Shield, Zap, TrendingUp, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useWallet } from '../contexts/WalletContext';
 import { ASIAgentStatus } from '../components/ASIAgentStatus';
 import { ReputationDisplay } from '../components/ReputationDisplay';
 import { useContractData } from '../contexts/ContractDataContext';
 
-interface HomePageProps {
-  onNavigate: (page: string) => void;
-}
-
-export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
+export const HomePage: React.FC = () => {
+  const navigate = useNavigate();
   const { walletAddress, connectWallet, isConnecting } = useWallet();
   const { getJobs, isLoading } = useContractData();
 
@@ -34,7 +32,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                   {isConnecting ? 'Connecting...' : 'Get Started'}
                 </button>
                 <button
-                  onClick={() => onNavigate('jobs')}
+                  onClick={() => navigate('/jobs')}
                   className="btn-secondary text-lg px-8 py-4"
                 >
                   Browse Jobs
@@ -43,13 +41,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
             ) : (
               <>
                 <button
-                  onClick={() => onNavigate('jobs')}
+                  onClick={() => navigate('/jobs')}
                   className="btn-primary text-lg px-8 py-4 glow-blue"
                 >
                   Find Work
                 </button>
                 <button
-                  onClick={() => onNavigate('post-job')}
+                  onClick={() => navigate('/post-job')}
                   className="btn-secondary text-lg px-8 py-4"
                 >
                   Post a Job
@@ -328,13 +326,13 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                   <h3 className="text-lg font-semibold text-white mb-3">Quick Actions</h3>
                   <div className="space-y-2">
                     <button
-                      onClick={() => onNavigate('post-job')}
+                      onClick={() => navigate('/post-job')}
                       className="btn-primary w-full text-sm"
                     >
                       Post Test Job
                     </button>
                     <button
-                      onClick={() => onNavigate('jobs')}
+                      onClick={() => navigate('/jobs')}
                       className="btn-secondary w-full text-sm"
                     >
                       View Find Work

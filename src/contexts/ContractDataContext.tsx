@@ -74,7 +74,7 @@ interface ContractDataContextType {
   refreshJobs: () => Promise<void>;
   
   // Bid methods
-  getBidsForJob: (jobId: string) => EnhancedBid[];
+  getBidsForJob: (jobId: string) => Promise<EnhancedBid[]>;
   getBidsForFreelancer: (freelancerWallet: string) => EnhancedBid[];
   createBid: (bidData: any) => Promise<EnhancedBid>;
   acceptBid: (bidId: string) => Promise<void>;
@@ -275,9 +275,25 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  const getBidsForJob = (jobId: string): EnhancedBid[] => {
-    return bids.filter(bid => bid.job_id === jobId)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const getBidsForJob = async (jobId: string): Promise<EnhancedBid[]> => {
+    if (!contractService) {
+      console.log('❌ Contract service not available for fetching job bids');
+      return [];
+    }
+    
+    try {
+      console.log(`🔍 Fetching bids for job ${jobId}...`);
+      const jobBids = await contractService.getJobBidsWithDetails(parseInt(jobId));
+      console.log(`📋 Raw job bids from contract:`, jobBids);
+      
+      const enhancedBids = jobBids.map(bid => convertContractBidToEnhanced(bid));
+      console.log(`✅ Enhanced bids for job ${jobId}:`, enhancedBids);
+      
+      return enhancedBids.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } catch (error) {
+      console.error(`❌ Error fetching bids for job ${jobId}:`, error);
+      return [];
+    }
   };
 
   const getBidsForFreelancer = (freelancerWallet: string): EnhancedBid[] => {
@@ -299,6 +315,9 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       // Refresh bids to get the new bid
       await refreshBids();
+      
+      // Also refresh jobs to update bid count
+      await refreshJobs();
       
       // Return the newly created bid
       const newBid = bids[bids.length - 1];

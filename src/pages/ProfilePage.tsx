@@ -3,11 +3,7 @@ import { MapPin, Star, Edit2 } from 'lucide-react';
 import { useWallet } from '../contexts/WalletContext';
 import { useData, Rating } from '../contexts/DataContext';
 
-interface ProfilePageProps {
-  onNavigate: (page: string) => void;
-}
-
-export const ProfilePage: React.FC<ProfilePageProps> = () => {
+export const ProfilePage: React.FC = () => {
   const { walletAddress, userProfile, updateProfile } = useWallet();
   const { getRatingsForWallet } = useData();
   const [editing, setEditing] = useState(false);
