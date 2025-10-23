@@ -4,31 +4,31 @@
     "name": "Sepolia"
   },
   "deployer": "0xfa462b48e937d6fb3503d5358a0d073fe720e0dd",
-  "timestamp": "2025-10-21T13:15:34.042Z",
+  "timestamp": "2025-10-23T06:09:45.712Z",
   "contracts": {
     "MockPYUSD": {
-      "address": "0x56213194eb590d847c38c5be20e6c712ebac0c96",
+      "address": "0xb8bb2bda510ac245e44d2dc583326362722bcebf",
       "constructorArgs": []
     },
     "ReputationSystem": {
-      "address": "0x85508aead303f21f6721909bff464b1759f48ef8",
+      "address": "0x2edd45aa50b9ad7c5bed6a162332211faa088e47",
       "constructorArgs": []
     },
     "ASIAgentOracle": {
-      "address": "0x7e6a3f60b4090d000d08345dbec5a51a61a2808a",
+      "address": "0xd7221675d292a4e44f88127651978edc98aaa1dc",
       "constructorArgs": []
     },
     "ASIAgentVerifier": {
-      "address": "0xb25ce9a19be26d4a20da2da0a3a6a139764a8b63",
+      "address": "0xe9d2f31ba4abcdd29cd8586588ba55562a4d24b8",
       "constructorArgs": [
-        "0x661238043ff0d78955b6d6db52a4b3f9ad10d94a"
+        "0x6fe56a84a657bbaffc3953ff786083b7411e5876"
       ]
     },
     "ChainLanceCore": {
-      "address": "0x661238043ff0d78955b6d6db52a4b3f9ad10d94a",
+      "address": "0x6fe56a84a657bbaffc3953ff786083b7411e5876",
       "constructorArgs": [
-        "0x56213194eb590d847c38c5be20e6c712ebac0c96",
-        "0xb25ce9a19be26d4a20da2da0a3a6a139764a8b63"
+        "0xb8bb2bda510ac245e44d2dc583326362722bcebf",
+        "0xe9d2f31ba4abcdd29cd8586588ba55562a4d24b8"
       ]
     }
   },

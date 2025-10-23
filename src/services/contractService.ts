@@ -332,6 +332,17 @@ export class ContractService {
     }
   }
 
+  async rejectBid(bidId: number): Promise<string> {
+    try {
+      const tx = await this.chainLanceCore.rejectBid(bidId);
+      const receipt = await tx.wait();
+      return receipt.hash;
+    } catch (error) {
+      console.error('Error rejecting bid:', error);
+      throw error;
+    }
+  }
+
   // Contract Management
   async getContract(contractId: number): Promise<ContractFreelanceContract | null> {
     try {

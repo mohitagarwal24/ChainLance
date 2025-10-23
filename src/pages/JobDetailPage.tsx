@@ -9,7 +9,7 @@ export const JobDetailPage: React.FC = () => {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const { walletAddress } = useWallet();
-  const { getJob, getJobs, createBid, getBidsForJob, isLoading } = useContractData();
+  const { getJob, getJobs, createBid, getBidsForJob, rejectBid, isLoading } = useContractData();
   const { getProfile } = useData();
   const [job, setJob] = useState<EnhancedJob | null>(null);
   const [bids, setBids] = useState<EnhancedBid[]>([]);
@@ -103,7 +103,7 @@ export const JobDetailPage: React.FC = () => {
     setSubmitting(true);
 
     const proposedAmount = parseFloat(bidData.proposed_amount);
-    const stakeAmount = proposedAmount * 0.1; // 10% stake
+    const stakeAmount = proposedAmount; // Full bid amount as stake
 
     try {
       // Create bid with real contract interaction
@@ -134,6 +134,24 @@ export const JobDetailPage: React.FC = () => {
       alert(`Error submitting bid: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleRejectBid = async (bidId: string, freelancerName: string) => {
+    const confirmReject = window.confirm(
+      `Are you sure you want to reject the proposal from ${freelancerName}? This action cannot be undone and will return their stake.`
+    );
+
+    if (!confirmReject) return;
+
+    try {
+      await rejectBid(bidId);
+      alert('Bid rejected successfully! The freelancer\'s stake has been returned.');
+      // Reload job details to update the bid list
+      await loadJobDetails();
+    } catch (error) {
+      console.error('Error rejecting bid:', error);
+      alert(`Error rejecting bid: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -289,12 +307,20 @@ export const JobDetailPage: React.FC = () => {
                             Timeline: {bid.estimated_timeline}
                           </span>
                           {bid.status === 'pending' && (
-                            <button
-                              onClick={() => navigate(`/accept-bid/${job.id}/${bid.id}`)}
-                              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-                            >
-                              Accept Proposal
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleRejectBid(bid.id.toString(), bidProfiles[bid.freelancer_wallet]?.display_name || 'Freelancer')}
+                                className="px-3 py-1 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700"
+                              >
+                                Reject
+                              </button>
+                              <button
+                                onClick={() => navigate(`/accept-bid/${job.id}/${bid.id}`)}
+                                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+                              >
+                                Accept Proposal
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -364,8 +390,8 @@ export const JobDetailPage: React.FC = () => {
                       className="input w-full"
                     />
                     {bidData.proposed_amount && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        Stake required: ${(parseFloat(bidData.proposed_amount) * 0.1).toFixed(2)} (10%)
+                      <p className="text-xs text-yellow-400 mt-1">
+                        ⚠️ Full amount (${parseFloat(bidData.proposed_amount).toFixed(2)}) will be staked and locked until bid resolution
                       </p>
                     )}
                   </div>

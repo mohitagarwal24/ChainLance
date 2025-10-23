@@ -28,9 +28,8 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
     uint256 public platformFee = 300; // 3%
     uint256 public constant MAX_PLATFORM_FEE = 1000; // 10% max
     
-    // Minimum escrow deposit percentage (in basis points)
-    uint256 public constant MIN_ESCROW_DEPOSIT = 1000; // 10%
-    uint256 public constant MAX_ESCROW_DEPOSIT = 2000; // 20%
+    // Escrow deposit percentage (in basis points) - 20% initial deposit
+    uint256 public constant INITIAL_ESCROW_DEPOSIT = 2000; // 20%
 
     // ASI Agent verification contract
     address public asiAgentVerifier;
@@ -145,6 +144,7 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
     event MilestoneApproved(uint256 indexed contractId, uint256 milestoneIndex, uint256 amount);
     event PaymentReleased(uint256 indexed contractId, address indexed freelancer, uint256 amount);
     event StakeSlashed(uint256 indexed bidId, address indexed freelancer, uint256 amount);
+    event BidRejected(uint256 indexed bidId, uint256 indexed jobId, address indexed freelancer);
     event ASIVerificationCompleted(uint256 indexed contractId, uint256 milestoneIndex, bool approved);
     event ProfileUpdated(address indexed user, string displayName);
 
@@ -215,8 +215,8 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
         require(_budget > 0, "Budget must be greater than 0");
         require(bytes(_title).length > 0, "Title cannot be empty");
         
-        // Calculate required escrow deposit (10-20% of budget)
-        uint256 escrowDeposit = (_budget * MIN_ESCROW_DEPOSIT) / 10000;
+        // Calculate required escrow deposit (20% of budget)
+        uint256 escrowDeposit = (_budget * INITIAL_ESCROW_DEPOSIT) / 10000;
         
         // Transfer escrow deposit from client
         require(
@@ -265,8 +265,8 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
         require(job.client != msg.sender, "Cannot bid on your own job");
         require(_proposedAmount > 0, "Proposed amount must be greater than 0");
 
-        // Calculate stake amount (10% of proposed amount)
-        uint256 stakeAmount = (_proposedAmount * 1000) / 10000; // 10%
+        // Stake the full proposed amount as specified in requirements
+        uint256 stakeAmount = _proposedAmount;
         
         // Transfer stake from freelancer
         require(
@@ -310,14 +310,14 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
         require(bid.status == BidStatus.Pending, "Bid is not pending");
         require(job.status == JobStatus.Open, "Job is not open");
 
-        // Transfer remaining escrow amount (total - initial deposit)
-        uint256 remainingEscrow = bid.proposedAmount - job.escrowDeposit;
-        if (remainingEscrow > 0) {
-            require(
-                pyusdToken.transferFrom(msg.sender, address(this), remainingEscrow),
-                "Remaining escrow transfer failed"
-            );
-        }
+        // Transfer remaining escrow amount (80% of bid amount)
+        // Since client already deposited 20% and freelancer staked 100%, 
+        // client needs to deposit remaining 80% to complete the escrow
+        uint256 remainingEscrow = (bid.proposedAmount * 8000) / 10000; // 80%
+        require(
+            pyusdToken.transferFrom(msg.sender, address(this), remainingEscrow),
+            "Remaining escrow transfer failed"
+        );
 
         _contractIds++;
         uint256 contractId = _contractIds;
@@ -556,6 +556,28 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
         pyusdToken.transfer(job.client, stakeAmount);
         
         emit StakeSlashed(_bidId, bid.freelancer, stakeAmount);
+    }
+
+    /**
+     * @dev Reject a bid (only by job client)
+     */
+    function rejectBid(uint256 _bidId) external bidExists(_bidId) nonReentrant {
+        Bid storage bid = bids[_bidId];
+        Job storage job = jobs[bid.jobId];
+        
+        require(job.client == msg.sender, "Only job client can reject bids");
+        require(bid.status == BidStatus.Pending, "Can only reject pending bids");
+        
+        bid.status = BidStatus.Rejected;
+        
+        // Refund stake to freelancer
+        uint256 stakeToRefund = stakeBalances[_bidId];
+        if (stakeToRefund > 0) {
+            stakeBalances[_bidId] = 0;
+            pyusdToken.transfer(bid.freelancer, stakeToRefund);
+        }
+        
+        emit BidRejected(_bidId, bid.jobId, bid.freelancer);
     }
 
     /**

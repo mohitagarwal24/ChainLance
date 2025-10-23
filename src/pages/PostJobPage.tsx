@@ -86,7 +86,7 @@ export const PostJobPage: React.FC = () => {
       return;
     }
 
-    const escrowDeposit = parseFloat(formData.budget) * 0.15;
+    const escrowDeposit = parseFloat(formData.budget) * 0.2; // 20% escrow deposit
     
     // Check if user has sufficient PYUSD balance
     if (pyusdBalance < escrowDeposit) {
@@ -369,24 +369,24 @@ export const PostJobPage: React.FC = () => {
                   </div>
                   {formData.budget && (
                     <div className={`mt-2 p-3 rounded-lg border ${
-                      pyusdBalance >= (parseFloat(formData.budget) * 0.15) 
+                      pyusdBalance >= (parseFloat(formData.budget) * 0.2) 
                         ? 'bg-blue-900/20 border-blue-800' 
                         : 'bg-red-900/20 border-red-800'
                     }`}>
                       <p className={`text-sm ${
-                        pyusdBalance >= (parseFloat(formData.budget) * 0.15) 
+                        pyusdBalance >= (parseFloat(formData.budget) * 0.2) 
                           ? 'text-blue-300' 
                           : 'text-red-300'
                       }`}>
-                        <strong>Escrow Deposit Required:</strong> ${(parseFloat(formData.budget) * 0.15).toFixed(2)} PYUSD (15% of budget)
+                        <strong>Escrow Deposit Required:</strong> ${(parseFloat(formData.budget) * 0.2).toFixed(2)} PYUSD (20% of budget)
                       </p>
-                      {pyusdBalance < (parseFloat(formData.budget) * 0.15) && (
+                      {pyusdBalance < (parseFloat(formData.budget) * 0.2) && (
                         <p className="text-xs text-red-400 mt-1">
-                          ⚠️ Insufficient balance! You need ${((parseFloat(formData.budget) * 0.15) - pyusdBalance).toFixed(2)} more PYUSD.
+                          ⚠️ Insufficient balance! You need ${((parseFloat(formData.budget) * 0.2) - pyusdBalance).toFixed(2)} more PYUSD.
                         </p>
                       )}
                       <p className={`text-xs mt-1 ${
-                        pyusdBalance >= (parseFloat(formData.budget) * 0.15) 
+                        pyusdBalance >= (parseFloat(formData.budget) * 0.2) 
                           ? 'text-blue-600' 
                           : 'text-red-600'
                       }`}>

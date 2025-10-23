@@ -9,13 +9,14 @@ export const AcceptBidPage: React.FC = () => {
   const { jobId, bidId } = useParams<{ jobId: string; bidId: string }>();
   const navigate = useNavigate();
   const { walletAddress } = useWallet();
-  const { getJob, getBidsForJob, acceptBid, getPYUSDBalance } = useContractData();
+  const { getJob, getBidsForJob, acceptBid, rejectBid, getPYUSDBalance } = useContractData();
   const { getProfile } = useData();
   const [job, setJob] = useState<EnhancedJob | null>(null);
   const [bid, setBid] = useState<EnhancedBid | null>(null);
   const [freelancerProfile, setFreelancerProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [accepting, setAccepting] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [pyusdBalance, setPyusdBalance] = useState<number>(0);
 
   useEffect(() => {
@@ -66,16 +67,14 @@ export const AcceptBidPage: React.FC = () => {
   };
 
   const handleAcceptBid = async () => {
-    if (!job || !bid || !walletAddress) return;
-
-    // Check if user is the job owner
-    if (job.client_wallet?.toLowerCase() !== walletAddress?.toLowerCase()) {
-      alert('Only the job owner can accept bids');
+    if (!job || !bid) {
+      alert('Job or bid information is missing.');
       return;
     }
 
-    // Calculate remaining escrow needed (total amount - initial deposit)
-    const remainingEscrow = bid.proposed_amount - (job.budget * 0.15);
+    // Calculate remaining escrow needed (80% of bid amount)
+    // Client already deposited 20% of job budget, now needs 80% of accepted bid
+    const remainingEscrow = bid.proposed_amount * 0.8;
     
     // Check if user has sufficient PYUSD balance
     if (pyusdBalance < remainingEscrow) {
@@ -93,6 +92,31 @@ export const AcceptBidPage: React.FC = () => {
       alert('Error accepting bid. Please try again.');
     } finally {
       setAccepting(false);
+    }
+  };
+
+  const handleRejectBid = async () => {
+    if (!job || !bid) {
+      alert('Job or bid information is missing.');
+      return;
+    }
+
+    const confirmReject = window.confirm(
+      `Are you sure you want to reject this proposal from ${freelancerProfile?.display_name || 'this freelancer'}? This action cannot be undone and will return their stake.`
+    );
+
+    if (!confirmReject) return;
+
+    setRejecting(true);
+    try {
+      await rejectBid(String(bidId));
+      alert('Bid rejected successfully! The freelancer\'s stake has been returned.');
+      navigate(`/job/${jobId}`);
+    } catch (error) {
+      console.error('Error rejecting bid:', error);
+      alert('Error rejecting bid. Please try again.');
+    } finally {
+      setRejecting(false);
     }
   };
 
@@ -121,7 +145,8 @@ export const AcceptBidPage: React.FC = () => {
     );
   }
 
-  const remainingEscrow = bid.proposed_amount - (job.budget * 0.15);
+  const initialDeposit = job.budget * 0.2; // 20% initial deposit
+  const remainingEscrow = bid.proposed_amount * 0.8; // 80% of bid amount
   const hasEnoughBalance = pyusdBalance >= remainingEscrow;
 
   return (
@@ -296,8 +321,22 @@ export const AcceptBidPage: React.FC = () => {
               Cancel
             </button>
             <button
+              onClick={handleRejectBid}
+              disabled={rejecting || accepting}
+              className="bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium flex-1 flex items-center justify-center"
+            >
+              {rejecting ? (
+                <>
+                  <Clock className="w-5 h-5 animate-spin mr-2" />
+                  Rejecting...
+                </>
+              ) : (
+                'Reject Proposal'
+              )}
+            </button>
+            <button
               onClick={handleAcceptBid}
-              disabled={accepting || !hasEnoughBalance}
+              disabled={accepting || !hasEnoughBalance || rejecting}
               className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {accepting ? (

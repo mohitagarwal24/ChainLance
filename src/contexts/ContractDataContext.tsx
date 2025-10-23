@@ -78,6 +78,7 @@ interface ContractDataContextType {
   getBidsForFreelancer: (freelancerWallet: string) => EnhancedBid[];
   createBid: (bidData: any) => Promise<EnhancedBid>;
   acceptBid: (bidId: string) => Promise<void>;
+  rejectBid: (bidId: string) => Promise<void>;
   refreshBids: () => Promise<void>;
   
   // Contract methods
@@ -342,6 +343,20 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
+  const rejectBid = async (bidId: string): Promise<void> => {
+    if (!contractService) throw new Error('Contract service not initialized');
+    
+    try {
+      await contractService.rejectBid(parseInt(bidId));
+      
+      // Refresh data to reflect changes
+      await refreshBids();
+    } catch (error) {
+      console.error('Error rejecting bid:', error);
+      throw error;
+    }
+  };
+
   // Contract methods
   const refreshContracts = async () => {
     if (!contractService) return;
@@ -526,6 +541,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
         getBidsForFreelancer,
         createBid,
         acceptBid,
+        rejectBid,
         refreshBids,
         getContractsForWallet,
         getContract,
