@@ -89,6 +89,12 @@ interface ContractDataContextType {
   // Token operations
   getPYUSDBalance: () => Promise<number>;
   requestPYUSDFromFaucet: () => Promise<void>;
+
+  // Work submission
+  submitWork: (submissionData: any) => Promise<string>;
+  
+  // Direct job access (bypasses filtering)
+  getJobDirect: (jobId: string) => Promise<EnhancedJob | null>;
 }
 
 const ContractDataContext = createContext<ContractDataContextType | undefined>(undefined);
@@ -219,7 +225,80 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const getJob = (jobId: string): EnhancedJob | null => {
-    return jobs.find(job => job.id === parseInt(jobId)) || null;
+    console.log('🔍 ContractDataContext getJob: Looking for job ID:', jobId);
+    console.log('📊 Available jobs in state:', jobs.length);
+    console.log('📋 Job IDs in state:', jobs.map(j => j.id));
+    
+    // First try to find in current jobs array
+    const foundJob = jobs.find(job => job.id === parseInt(jobId));
+    if (foundJob) {
+      console.log('✅ Found job in filtered array:', foundJob);
+      return foundJob;
+    }
+    
+    // If not found, try to fetch directly from contract service
+    if (contractService) {
+      console.log('🔍 Job not in filtered array, trying to fetch directly...');
+      try {
+        // We need to get the job directly, regardless of status
+        // For now, let's return null and fix this by using DataContext
+        console.log('❌ Job not found in ContractDataContext, should use DataContext instead');
+      } catch (error) {
+        console.error('Error fetching job directly:', error);
+      }
+    }
+    
+    return null;
+  };
+
+  const getJobDirect = async (jobId: string): Promise<EnhancedJob | null> => {
+    if (!contractService) {
+      console.log('❌ Contract service not available');
+      return null;
+    }
+
+    try {
+      console.log('🔍 Getting job directly from contract for ID:', jobId);
+      const job = await contractService.getJob(parseInt(jobId));
+      console.log('📄 Direct job result:', job);
+      
+      if (!job) {
+        console.log('❌ Job not found in contract');
+        return null;
+      }
+
+      // Convert to EnhancedJob format - simplified
+      const enhancedJob: any = {
+        id: job.id,
+        client: job.client,
+        title: job.title,
+        description: job.description,
+        category: job.category,
+        budget: job.budget,
+        createdAt: job.createdAt,
+        experienceLevel: job.experienceLevel,
+        updatedAt: job.updatedAt,
+        contract_type: job.contractType === 0 ? 'fixed' : job.contractType === 1 ? 'hourly' : 'milestone',
+        status: job.status === 0 ? 'open' : job.status === 1 ? 'in_progress' : 'completed',
+        client_wallet: job.client,
+        required_skills: [],
+        escrow_tx_hash: null,
+        deadline_date: null,
+        experience_level: 'intermediate',
+        project_duration: '1 week',
+        number_of_milestones: 1,
+        bids_count: 0,
+        views_count: 0,
+        created_at: new Date(job.createdAt * 1000).toISOString(),
+        updated_at: new Date(job.updatedAt * 1000).toISOString()
+      };
+
+      console.log('✅ Enhanced job created:', enhancedJob);
+      return enhancedJob;
+    } catch (error) {
+      console.error('❌ Error getting job directly:', error);
+      return null;
+    }
   };
 
   const createJob = async (jobData: any): Promise<EnhancedJob> => {
@@ -390,18 +469,18 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.log(`🔄 Refreshing contracts for wallet: ${walletAddress}`);
       const userContractIds = await contractService.getUserContracts(walletAddress);
       console.log(`📋 Found contract IDs:`, userContractIds);
-      
+
       if (userContractIds.length === 0) {
         console.log(`⚠️ No contract IDs found for wallet ${walletAddress}`);
         setContracts([]);
         return;
       }
-      
+
       const userContracts = await Promise.all(
         userContractIds.map(async (id) => {
           console.log(`📄 Processing contract ID: ${id}`);
           const contract = await contractService.getContract(id);
-          
+
           if (contract) {
             console.log(`✅ Contract ${id} fetched successfully:`, contract);
             try {
@@ -431,15 +510,15 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const getContractsForWallet = (walletAddress: string, status?: string): EnhancedContract[] => {
     console.log(`🔍 getContractsForWallet called with wallet: ${walletAddress}, status: ${status}`);
     console.log(`📋 Total contracts in state: ${contracts.length}`, contracts);
-    
+
     let filteredContracts = contracts.filter(contract => {
-      const isClientOrFreelancer = 
-        contract.client_wallet.toLowerCase() === walletAddress.toLowerCase() || 
+      const isClientOrFreelancer =
+        contract.client_wallet.toLowerCase() === walletAddress.toLowerCase() ||
         contract.freelancer_wallet.toLowerCase() === walletAddress.toLowerCase();
       console.log(`🔍 Contract ${contract.id}: client=${contract.client_wallet}, freelancer=${contract.freelancer_wallet}, wallet=${walletAddress}, matches=${isClientOrFreelancer}`);
       return isClientOrFreelancer;
     });
-    
+
     console.log(`📋 After wallet filter: ${filteredContracts.length} contracts`, filteredContracts);
 
     if (status) {
@@ -457,7 +536,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
       }
     }
-    
+
     console.log(`📋 Final filtered contracts: ${filteredContracts.length}`, filteredContracts);
     return filteredContracts.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   };
@@ -612,6 +691,8 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
         refreshContracts,
         getPYUSDBalance,
         requestPYUSDFromFaucet,
+        submitWork: contractService?.submitWork.bind(contractService) || (async () => { throw new Error('Contract service not available'); }),
+        getJobDirect,
       }}
     >
       {children}

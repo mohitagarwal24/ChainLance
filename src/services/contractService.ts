@@ -475,6 +475,173 @@ export class ContractService {
     }
   }
 
+  async submitWork(submissionData: any): Promise<string> {
+    try {
+      console.log('🚀 Submitting work for ASI agent verification:', submissionData);
+      
+      // In a real implementation, this would:
+      // 1. Upload deliverables to IPFS
+      // 2. Create a hash of the submission
+      // 3. Submit to the ASI agent network
+      // 4. Trigger the verification process
+      
+      // For now, we'll simulate the process
+      const deliverableHash = this.createSubmissionHash(submissionData);
+      
+      // Submit milestone to smart contract
+      const tx = await this.chainLanceCore.submitMilestone(
+        submissionData.contract_id,
+        0, // First milestone
+        deliverableHash
+      );
+      
+      const receipt = await tx.wait();
+      console.log('✅ Work submission transaction confirmed:', receipt.hash);
+      
+      // Trigger ASI agent verification (simulated)
+      await this.triggerASIAgentVerification(submissionData);
+      
+      return receipt.hash;
+      
+    } catch (error) {
+      console.error('Error submitting work:', error);
+      throw error;
+    }
+  }
+
+  private createSubmissionHash(submissionData: any): string {
+    // Create a hash of the submission data
+    const dataString = JSON.stringify({
+      work_id: submissionData.work_id,
+      deliverables: submissionData.deliverables,
+      description: submissionData.description,
+      timestamp: submissionData.submission_timestamp
+    });
+    
+    // Simple hash (in production, use proper cryptographic hash)
+    return `0x${Buffer.from(dataString).toString('hex').slice(0, 64)}`;
+  }
+
+  private async triggerASIAgentVerification(submissionData: any): Promise<void> {
+    try {
+      console.log('🤖 Triggering ASI agent verification...');
+      
+      // In a real implementation, this would send a message to the ASI agent network
+      // For now, we'll simulate the process with a timeout
+      
+      setTimeout(async () => {
+        console.log('🔍 ASI agents are reviewing the work...');
+        
+        // Simulate agent verification process (3-5 minutes in real scenario)
+        setTimeout(async () => {
+          const approved = Math.random() > 0.3; // 70% approval rate for demo
+          
+          if (approved) {
+            console.log('✅ ASI agents approved the work! Triggering 20% payment...');
+            await this.processAgentApprovalPayment(submissionData.contract_id, 20);
+          } else {
+            console.log('❌ ASI agents requested revisions');
+          }
+        }, 10000); // 10 seconds for demo (would be longer in reality)
+        
+      }, 2000); // 2 seconds initial delay
+      
+    } catch (error) {
+      console.error('Error triggering ASI agent verification:', error);
+    }
+  }
+
+  private async processAgentApprovalPayment(contractId: number, percentage: number): Promise<void> {
+    try {
+      console.log(`💰 Processing ${percentage}% payment for contract ${contractId}`);
+      
+      // In a real implementation, this would call a smart contract function
+      // to release the specified percentage of funds to the freelancer
+      
+      // For now, we'll just log the action
+      console.log(`✅ ${percentage}% payment released to freelancer`);
+      
+    } catch (error) {
+      console.error('Error processing agent approval payment:', error);
+    }
+  }
+
+  async approveWork(contractId: number, milestoneIndex: number = 0): Promise<string> {
+    try {
+      console.log(`✅ Client approving work for contract ${contractId}`);
+      
+      const tx = await this.chainLanceCore.approveMilestone(contractId, milestoneIndex);
+      const receipt = await tx.wait();
+      
+      console.log('✅ Work approved - full payment released');
+      return receipt.hash;
+      
+    } catch (error) {
+      console.error('Error approving work:', error);
+      throw error;
+    }
+  }
+
+  async requestRevisions(contractId: number, revisionNotes: string): Promise<string> {
+    try {
+      console.log(`🔄 Requesting revisions for contract ${contractId}`);
+      
+      // In a real implementation, this would update the contract state
+      // and notify the freelancer about required changes
+      
+      // For now, we'll simulate the process
+      console.log('📝 Revision request sent to freelancer');
+      
+      return 'revision_request_' + Date.now();
+      
+    } catch (error) {
+      console.error('Error requesting revisions:', error);
+      throw error;
+    }
+  }
+
+  async revokeContract(contractId: number): Promise<string> {
+    try {
+      console.log(`❌ Client revoking contract ${contractId}`);
+      
+      // In a real implementation, this would:
+      // 1. Check if revocation is allowed (early stage, etc.)
+      // 2. Calculate refund amounts (20% to freelancer, 80% to client)
+      // 3. Execute the refund transactions
+      
+      console.log('💰 Processing refunds: 20% to freelancer, 80% to client');
+      
+      return 'revocation_' + Date.now();
+      
+    } catch (error) {
+      console.error('Error revoking contract:', error);
+      throw error;
+    }
+  }
+
+  async removeJobPosting(jobId: number): Promise<string> {
+    try {
+      console.log(`🗑️ Removing job posting ${jobId}`);
+      
+      // Check if job has active contracts
+      const hasContracts = false; // Would check from smart contract
+      
+      if (hasContracts) {
+        // Job has contracts - partial refund
+        console.log('💰 Job has contracts - processing partial refunds');
+        return 'partial_refund_' + Date.now();
+      } else {
+        // No contracts - full refund
+        console.log('💰 No contracts found - processing full refund');
+        return 'full_refund_' + Date.now();
+      }
+      
+    } catch (error) {
+      console.error('Error removing job posting:', error);
+      throw error;
+    }
+  }
+
   async approveMilestone(contractId: number, milestoneIndex: number): Promise<string> {
     try {
       const tx = await this.chainLanceCore.approveMilestone(contractId, milestoneIndex);

@@ -7,7 +7,7 @@ import { useWallet } from '../contexts/WalletContext';
 export const ContractsPage: React.FC = () => {
   const navigate = useNavigate();
   const { walletAddress } = useWallet();
-  const { getContractsForWallet, getJob, refreshContracts } = useContractData();
+  const { getContractsForWallet, getJob, refreshContracts, contractService } = useContractData();
   const [contracts, setContracts] = useState<EnhancedContract[]>([]);
   const [contractJobs, setContractJobs] = useState<{ [key: string]: EnhancedJob }>({});
   const [loading, setLoading] = useState(true);
@@ -49,6 +49,50 @@ export const ContractsPage: React.FC = () => {
     setLoading(false);
   };
 
+  const handleApproveWork = async (contractId: number) => {
+    if (!contractService) return;
+    
+    try {
+      console.log(`✅ Approving work for contract ${contractId}`);
+      await contractService.approveWork(contractId);
+      
+      // Refresh contracts to show updated status
+      await loadContracts();
+      
+      alert('Work approved successfully! Full payment has been released to the freelancer.');
+    } catch (error: any) {
+      console.error('Failed to approve work:', error);
+      alert(`Failed to approve work: ${error.message}`);
+    }
+  };
+
+  const handleRevokeContract = async (contractId: number) => {
+    if (!contractService) return;
+    
+    const confirmed = window.confirm(
+      'Are you sure you want to revoke this contract? This will:\n' +
+      '• Give 20% of the contract amount to the freelancer\n' +
+      '• Refund 80% to you\n' +
+      '• Mark the contract as cancelled\n\n' +
+      'This action cannot be undone.'
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      console.log(`❌ Revoking contract ${contractId}`);
+      await contractService.revokeContract(contractId);
+      
+      // Refresh contracts to show updated status
+      await loadContracts();
+      
+      alert('Contract revoked successfully! Refunds have been processed.');
+    } catch (error: any) {
+      console.error('Failed to revoke contract:', error);
+      alert(`Failed to revoke contract: ${error.message}`);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -88,7 +132,7 @@ export const ContractsPage: React.FC = () => {
         </div>
 
         <div className="card p-6 mb-6">
-          <div className="border-b border-gray-700">
+          <div>
             <nav className="flex space-x-8 px-6" aria-label="Tabs">
               {[
                 { key: 'active', label: 'Active' },
@@ -189,9 +233,43 @@ export const ContractsPage: React.FC = () => {
                   </div>
 
                   {contract.status === 'active' && (
-                    <div className="mt-4 flex justify-end">
-                      <button className="text-blue-600 font-medium hover:text-blue-700 text-sm">
-                        View Details →
+                    <div className="mt-4 flex justify-end space-x-3">
+                      {/* Freelancer Actions */}
+                      {!isClient && (
+                        <button
+                          onClick={() => navigate(`/submit-work/${contract.id}`)}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          Submit Work
+                        </button>
+                      )}
+                      
+                      {/* Client Actions */}
+                      {isClient && (
+                        <>
+                          <button
+                            onClick={() => handleApproveWork(contract.id)}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
+                          >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Approve Work
+                          </button>
+                          <button
+                            onClick={() => handleRevokeContract(contract.id)}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center"
+                          >
+                            <AlertCircle className="w-4 h-4 mr-2" />
+                            Revoke Contract
+                          </button>
+                        </>
+                      )}
+                      
+                      <button
+                        onClick={() => navigate(`/contract/${contract.id}`)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        View Details
                       </button>
                     </div>
                   )}

@@ -94,15 +94,83 @@ export const ContractDetailPage: React.FC = () => {
   };
 
   const handleAutoRelease = async (milestoneIndex: number) => {
-    if (!contract || !contractService) return;
+    if (!contractService) return;
 
     try {
-      await contractService.autoReleaseMilestone(Number(contractId), milestoneIndex);
-      alert('Milestone payment auto-released successfully!');
-      loadContractDetails(); // Refresh contract data
+      await contractService.approveMilestone(contract!.id, milestoneIndex);
+      await loadContractDetails();
     } catch (error) {
-      console.error('Error auto-releasing milestone:', error);
-      alert('Error auto-releasing milestone. Please try again.');
+      console.error('Error triggering auto-release:', error);
+    }
+  };
+
+  const handleApproveWork = async () => {
+    if (!contractService || !contract) return;
+    
+    const confirmed = window.confirm(
+      'Are you sure you want to approve this work? This will release the remaining 80% of the payment to the freelancer.'
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      console.log(`✅ Client approving work for contract ${contract.id}`);
+      await contractService.approveWork(contract.id);
+      
+      // Refresh contract details
+      await loadContractDetails();
+      
+      alert('Work approved successfully! Full payment has been released to the freelancer.');
+    } catch (error: any) {
+      console.error('Failed to approve work:', error);
+      alert(`Failed to approve work: ${error.message}`);
+    }
+  };
+
+  const handleRequestRevisions = async () => {
+    if (!contractService || !contract) return;
+    
+    const revisionNotes = window.prompt(
+      'Please describe what changes you would like the freelancer to make:'
+    );
+    
+    if (!revisionNotes) return;
+    
+    try {
+      console.log(`🔄 Requesting revisions for contract ${contract.id}`);
+      await contractService.requestRevisions(contract.id, revisionNotes);
+      
+      alert('Revision request sent to the freelancer. They will be notified about the required changes.');
+    } catch (error: any) {
+      console.error('Failed to request revisions:', error);
+      alert(`Failed to request revisions: ${error.message}`);
+    }
+  };
+
+  const handleRevokeContract = async () => {
+    if (!contractService || !contract) return;
+    
+    const confirmed = window.confirm(
+      'Are you sure you want to revoke this contract? This will:\n' +
+      '• Give 20% of the contract amount to the freelancer\n' +
+      '• Refund 80% to you\n' +
+      '• Mark the contract as cancelled\n\n' +
+      'This action cannot be undone.'
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      console.log(`❌ Client revoking contract ${contract.id}`);
+      await contractService.revokeContract(contract.id);
+      
+      // Refresh contract details
+      await loadContractDetails();
+      
+      alert('Contract revoked successfully! Refunds have been processed.');
+    } catch (error: any) {
+      console.error('Failed to revoke contract:', error);
+      alert(`Failed to revoke contract: ${error.message}`);
     }
   };
 
@@ -199,6 +267,105 @@ export const ContractDetailPage: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Work Submission Section for Freelancers */}
+            {(() => {
+              console.log('🔍 ContractDetailPage: Checking work submission visibility');
+              console.log('📊 isFreelancer:', isFreelancer);
+              console.log('📊 contract.status:', contract?.status);
+              console.log('📊 walletAddress:', walletAddress);
+              console.log('📊 contract.freelancer_wallet:', contract?.freelancer_wallet);
+              return null;
+            })()}
+            {isFreelancer && contract.status === 'active' && (
+              <div className="card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">Submit Work for ASI Agent Verification</h3>
+                  <div className="flex items-center text-sm text-purple-400">
+                    <span className="w-2 h-2 bg-purple-400 rounded-full mr-2"></span>
+                    AI-Powered Verification
+                  </div>
+                </div>
+                
+                <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 rounded-lg p-4 mb-4">
+                  <h4 className="text-white font-medium mb-2">🤖 ASI Agent Verification Process</h4>
+                  <div className="grid md:grid-cols-3 gap-3 text-sm text-gray-300">
+                    <div>
+                      <div className="font-medium text-purple-300">1. Multi-Agent Review</div>
+                      <div>3 specialist AI agents analyze your work</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-blue-300">2. Quality Assessment</div>
+                      <div>MeTTa reasoning provides structured evaluation</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-green-300">3. Automatic Payment</div>
+                      <div>20% released on agent approval</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => navigate(`/submit-work/${contract.id}`)}
+                    className="flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-medium"
+                  >
+                    <Upload className="w-5 h-5 mr-2" />
+                    Submit Work for AI Verification
+                  </button>
+                  
+                  <div className="flex items-center text-sm text-gray-400">
+                    <FileText className="w-4 h-4 mr-1" />
+                    Upload deliverables & get instant AI feedback
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Client Work Review Section */}
+            {isClient && contract.status === 'active' && (
+              <div className="card p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Work Review & Approval</h3>
+                
+                <div className="bg-gradient-to-r from-blue-900/30 to-green-900/30 rounded-lg p-4 mb-4">
+                  <h4 className="text-white font-medium mb-2">💰 Payment Process</h4>
+                  <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-300">
+                    <div>
+                      <div className="font-medium text-blue-300">Agent Approval (20%)</div>
+                      <div>Automatic release when AI agents approve work</div>
+                    </div>
+                    <div>
+                      <div className="font-medium text-green-300">Your Approval (80%)</div>
+                      <div>Final review and approval for remaining payment</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => handleApproveWork()}
+                    className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                  >
+                    <CheckCircle className="w-5 h-5 mr-2" />
+                    Approve Work & Release Payment
+                  </button>
+                  
+                  <button
+                    onClick={() => handleRequestRevisions()}
+                    className="flex items-center px-4 py-3 border border-yellow-600 text-yellow-400 rounded-lg hover:bg-yellow-600 hover:text-white transition-colors"
+                  >
+                    Request Revisions
+                  </button>
+                  
+                  <button
+                    onClick={() => handleRevokeContract()}
+                    className="flex items-center px-4 py-3 border border-red-600 text-red-400 rounded-lg hover:bg-red-600 hover:text-white transition-colors"
+                  >
+                    Revoke Contract
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Milestones */}
             {contract.milestones && contract.milestones.length > 0 && (

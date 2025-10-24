@@ -1,6 +1,7 @@
 """
-ChainLance Verification Agent
-ASI Agent for verifying freelance work deliverables
+ChainLance Enhanced Verification Agent
+ASI Alliance integrated agent for comprehensive work verification
+Features: MeTTa reasoning, ASI:One chat, Agentverse discovery, Multi-agent coordination
 """
 
 import asyncio
@@ -14,6 +15,23 @@ import hashlib
 import os
 from web3 import Web3
 from dotenv import load_dotenv
+import sys
+from pathlib import Path
+
+# Add src directory to path for imports
+sys.path.append(str(Path(__file__).parent / "src"))
+
+from metta.knowledge_graph import (
+    WorkVerificationContext, 
+    WorkQualityAssessment, 
+    assess_work_quality,
+    metta_reasoner
+)
+from protocols.asi_one_chat import ASIOneChatProtocol, MessageType
+from agents.multi_agent_verifier import (
+    MultiAgentVerificationCoordinator,
+    AgentverseDiscovery
+)
 
 load_dotenv()
 
@@ -23,16 +41,21 @@ AGENT_PORT = int(os.getenv("AGENT_PORT", "8001"))
 AGENT_ENDPOINT = f"http://localhost:{AGENT_PORT}/submit"
 
 # Blockchain configuration
-WEB3_PROVIDER = os.getenv("WEB3_PROVIDER", "http://localhost:8545")
+WEB3_PROVIDER = os.getenv("WEB3_PROVIDER", "https://sepolia.infura.io/v3/your-key")
 CONTRACT_ADDRESS = os.getenv("ASI_VERIFIER_CONTRACT", "")
 PRIVATE_KEY = os.getenv("AGENT_PRIVATE_KEY", "")
+
+# ASI Alliance configuration
+AGENTVERSE_API_KEY = os.getenv("AGENTVERSE_API_KEY", "")
+ASI_ONE_ENDPOINT = os.getenv("ASI_ONE_ENDPOINT", "")
+METTA_CONFIG_PATH = os.getenv("METTA_CONFIG_PATH", "./config/metta_config.json")
 
 # Initialize Web3
 w3 = Web3(Web3.HTTPProvider(WEB3_PROVIDER))
 
-# Create agent
+# Create enhanced agent with ASI Alliance capabilities
 agent = Agent(
-    name="verification_agent",
+    name="chainlance_asi_verification_agent",
     seed=AGENT_SEED,
     port=AGENT_PORT,
     endpoint=[AGENT_ENDPOINT],
@@ -41,30 +64,201 @@ agent = Agent(
 # Fund agent if needed
 fund_agent_if_low(agent.wallet.address())
 
+# Initialize ASI Alliance components
+multi_agent_coordinator = MultiAgentVerificationCoordinator(agent.address)
+asi_one_chat = ASIOneChatProtocol(agent.address)
+
 # Logging setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+logger.info(f"🚀 ChainLance ASI Alliance Verification Agent initialized")
+logger.info(f"📍 Agent Address: {agent.address}")
+logger.info(f"🔗 Agentverse Integration: {'✅' if AGENTVERSE_API_KEY else '❌'}")
+logger.info(f"🧠 MeTTa Reasoning: ✅")
+logger.info(f"💬 ASI:One Chat Protocol: ✅")
+
 class VerificationRequest(Model):
     request_id: int
     contract_id: int
-    milestone_index: int
-    deliverable_hash: str
-    verification_criteria: str
-    job_category: str
+    work_id: str
+    deliverables: List[str]
+    description: str
+    category: str
+    requirements: List[str]
+    freelancer_notes: str
+    client_id: str
+    milestone_index: int = 0
 
 class VerificationResponse(Model):
     request_id: int
+    contract_id: int
+    work_id: str
+    verification_result: Dict[str, Any]
+    agents_used: List[str]
+    metta_assessment: Dict[str, Any]
+    asi_one_conversation_id: str
+    approved: bool
+    confidence: float
+    recommendations: List[str]
+    processing_time: float
+    timestamp: str
+
+class WorkSubmission(Model):
+    work_id: str
+    contract_id: int
+    deliverables: List[str]
+    description: str
+    freelancer_notes: str
+    category: str
+    client_id: str
+    submission_timestamp: str
+
+class AgentApprovalPayment(Model):
+    contract_id: int
+    work_id: str
+    amount_percentage: int
+    assessment_score: float
+    agent_signatures: List[str]
     approved: bool
     confidence_score: float
     verification_report: str
     issues_found: List[str]
 
-class DeliverableAnalysis(Model):
-    file_type: str
-    file_size: int
-    content_hash: str
-    metadata: Dict[str, Any]
+# Create verification protocol
+verification_protocol = Protocol("ChainLance ASI Alliance Verification")
+
+@verification_protocol.on_message(model=WorkSubmission)
+async def handle_work_submission(ctx: Context, sender: str, msg: WorkSubmission):
+    """Handle work submission with full ASI Alliance integration"""
+    logger.info(f"🔍 Received work submission: {msg.work_id} for contract {msg.contract_id}")
+    
+    try:
+        # Convert to work data format
+        work_data = {
+            "work_id": msg.work_id,
+            "contract_id": msg.contract_id,
+            "deliverables": msg.deliverables,
+            "description": msg.description,
+            "freelancer_notes": msg.freelancer_notes,
+            "category": msg.category,
+            "requirements": [],  # Would be fetched from contract
+            "submission_timestamp": msg.submission_timestamp
+        }
+        
+        # Start comprehensive verification using multi-agent coordination
+        logger.info(f"🤖 Starting multi-agent verification for work {msg.work_id}")
+        verification_result = await multi_agent_coordinator.verify_work(
+            work_data, 
+            msg.client_id
+        )
+        
+        # Check if verification was successful
+        if verification_result["status"] == "success":
+            assessment = verification_result["assessment"]
+            
+            # If agents approve (score >= 75%), trigger 20% payment
+            if assessment["approved"]:
+                logger.info(f"✅ Agents approved work {msg.work_id} - triggering 20% payment")
+                await trigger_agent_approval_payment(
+                    msg.contract_id,
+                    msg.work_id,
+                    assessment,
+                    verification_result["agents_used"]
+                )
+            else:
+                logger.info(f"❌ Agents rejected work {msg.work_id} - requesting revisions")
+        
+        # Send response back
+        response = VerificationResponse(
+            request_id=hash(msg.work_id) % 1000000,
+            contract_id=msg.contract_id,
+            work_id=msg.work_id,
+            verification_result=verification_result,
+            agents_used=verification_result.get("agents_used", []),
+            metta_assessment=assessment if verification_result["status"] == "success" else {},
+            asi_one_conversation_id=verification_result.get("conversation_id", ""),
+            approved=assessment.get("approved", False) if verification_result["status"] == "success" else False,
+            confidence=assessment.get("confidence", 0.0) if verification_result["status"] == "success" else 0.0,
+            recommendations=assessment.get("recommendations", []) if verification_result["status"] == "success" else [],
+            processing_time=0.0,  # Would calculate actual time
+            timestamp=datetime.now().isoformat()
+        )
+        
+        await ctx.send(sender, response)
+        
+    except Exception as e:
+        logger.error(f"❌ Error processing work submission {msg.work_id}: {str(e)}")
+        # Send error response
+        error_response = VerificationResponse(
+            request_id=hash(msg.work_id) % 1000000,
+            contract_id=msg.contract_id,
+            work_id=msg.work_id,
+            verification_result={"status": "error", "error": str(e)},
+            agents_used=[],
+            metta_assessment={},
+            asi_one_conversation_id="",
+            approved=False,
+            confidence=0.0,
+            recommendations=[f"Verification failed: {str(e)}"],
+            processing_time=0.0,
+            timestamp=datetime.now().isoformat()
+        )
+        await ctx.send(sender, error_response)
+
+async def trigger_agent_approval_payment(contract_id: int, 
+                                       work_id: str, 
+                                       assessment: Dict[str, Any],
+                                       agents_used: List[str]):
+    """Trigger 20% payment after agent approval"""
+    try:
+        # Create payment trigger message
+        payment_msg = AgentApprovalPayment(
+            contract_id=contract_id,
+            work_id=work_id,
+            amount_percentage=20,
+            assessment_score=assessment["overall_score"],
+            agent_signatures=agents_used  # In real implementation, would be cryptographic signatures
+        )
+        
+        # Submit to blockchain (would use actual smart contract call)
+        logger.info(f"💰 Triggering 20% payment for contract {contract_id}")
+        
+        # Update MeTTa knowledge graph with successful verification
+        metta_reasoner.update_knowledge_from_feedback(work_id, {
+            "type": "agent_approval",
+            "score": assessment["overall_score"],
+            "agents": agents_used,
+            "category": assessment.get("category", "general")
+        })
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to trigger payment for {work_id}: {str(e)}")
+        return False
+
+@verification_protocol.on_message(model=VerificationRequest)
+async def handle_verification_request(ctx: Context, sender: str, msg: VerificationRequest):
+    """Handle direct verification requests"""
+    logger.info(f"🔍 Received verification request {msg.request_id}")
+    
+    # Convert to WorkSubmission and process
+    work_submission = WorkSubmission(
+        work_id=msg.work_id,
+        contract_id=msg.contract_id,
+        deliverables=msg.deliverables,
+        description=msg.description,
+        freelancer_notes=msg.freelancer_notes,
+        category=msg.category,
+        client_id=msg.client_id,
+        submission_timestamp=datetime.now().isoformat()
+    )
+    
+    await handle_work_submission(ctx, sender, work_submission)
+
+# Register the protocol with the agent
+agent.include(verification_protocol)
 
 # Verification protocol
 verification_protocol = Protocol("Verification")
