@@ -6,6 +6,9 @@ A next-generation Web3 freelancing marketplace with smart contract escrow, AI-po
 
 ChainLance eliminates the high fees and trust issues of traditional freelancing platforms by leveraging blockchain technology, autonomous AI agents, and decentralized escrow. Built for the modern gig economy with security, transparency, and fairness at its core.
 
+## ✨Architechture
+<img width="1412" height="2294" alt="Untitled-2025-09-25-1843" src="https://github.com/user-attachments/assets/a3ee387e-274d-45e2-90fe-9e2fb8324a54" />
+
 ## ✨ Key Features
 
 ### For Everyone
