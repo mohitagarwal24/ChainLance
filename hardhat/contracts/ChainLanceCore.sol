@@ -310,10 +310,10 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
         require(bid.status == BidStatus.Pending, "Bid is not pending");
         require(job.status == JobStatus.Open, "Job is not open");
 
-        // Transfer remaining escrow amount (80% of bid amount)
-        // Since client already deposited 20% and freelancer staked 100%, 
-        // client needs to deposit remaining 80% to complete the escrow
-        uint256 remainingEscrow = (bid.proposedAmount * 8000) / 10000; // 80%
+        // Transfer remaining escrow amount (80% of job budget)
+        // Client already deposited 20% of job budget when posting job
+        // Now client needs to deposit remaining 80% of job budget to complete the escrow
+        uint256 remainingEscrow = (job.budget * 8000) / 10000; // 80% of job budget
         require(
             pyusdToken.transferFrom(msg.sender, address(this), remainingEscrow),
             "Remaining escrow transfer failed"
@@ -329,8 +329,8 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
         newContract.bidId = _bidId;
         newContract.client = job.client;
         newContract.freelancer = bid.freelancer;
-        newContract.totalAmount = bid.proposedAmount;
-        newContract.escrowAmount = bid.proposedAmount;
+        newContract.totalAmount = job.budget;
+        newContract.escrowAmount = job.budget;
         newContract.contractType = job.contractType;
         newContract.status = JobStatus.InProgress;
         newContract.startDate = block.timestamp;
@@ -338,11 +338,11 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
 
         // Create milestones if milestone-based contract
         if (job.contractType == ContractType.Milestone) {
-            uint256 milestoneAmount = bid.proposedAmount / job.numberOfMilestones;
+            uint256 milestoneAmount = job.budget / job.numberOfMilestones;
             for (uint256 i = 0; i < job.numberOfMilestones; i++) {
                 Milestone memory milestone = Milestone({
                     name: i < bid.proposedMilestones.length ? bid.proposedMilestones[i] : string(abi.encodePacked("Milestone ", i + 1)),
-                    amount: i == job.numberOfMilestones - 1 ? bid.proposedAmount - (milestoneAmount * i) : milestoneAmount,
+                    amount: i == job.numberOfMilestones - 1 ? job.budget - (milestoneAmount * i) : milestoneAmount,
                     description: "",
                     status: MilestoneStatus.Pending,
                     submissionDate: 0,
@@ -359,16 +359,26 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
         job.status = JobStatus.InProgress;
         
         // Store escrow
-        escrowBalances[contractId] = bid.proposedAmount;
+        escrowBalances[contractId] = job.budget;
         
         // Add to user contracts
         userContracts[job.client].push(contractId);
         userContracts[bid.freelancer].push(contractId);
 
         // Reject all other bids and refund stakes
-        uint256[] memory jobBidIds = jobBids[bid.jobId];
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            _rejectOtherBids(bid.jobId, _bidId);
+
+        emit BidAccepted(_bidId, contractId);
+        emit ContractCreated(contractId, bid.jobId, job.client, bid.freelancer);
+    }
+
+    /**
+     * @dev Internal function to reject other bids and refund stakes
+     */
+    function _rejectOtherBids(uint256 _jobId, uint256 _acceptedBidId) internal {
+        uint256[] memory jobBidIds = jobBids[_jobId];
         for (uint256 i = 0; i < jobBidIds.length; i++) {
-            if (jobBidIds[i] != _bidId && bids[jobBidIds[i]].status == BidStatus.Pending) {
+            if (jobBidIds[i] != _acceptedBidId && bids[jobBidIds[i]].status == BidStatus.Pending) {
                 bids[jobBidIds[i]].status = BidStatus.Rejected;
                 uint256 stakeToRefund = stakeBalances[jobBidIds[i]];
                 if (stakeToRefund > 0) {
@@ -377,9 +387,6 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
                 }
             }
         }
-
-        emit BidAccepted(_bidId, contractId);
-        emit ContractCreated(contractId, bid.jobId, job.client, bid.freelancer);
     }
 
     /**
@@ -406,6 +413,64 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
     }
 
     /**
+     * @dev Submit work for fixed-price contracts
+     */
+    function submitFixedWork(
+        uint256 _contractId,
+        string memory _deliverableHash
+    ) external contractExists(_contractId) {
+        FreelanceContract storage contractData = contracts[_contractId];
+        require(contractData.freelancer == msg.sender, "Only freelancer can submit work");
+        require(contractData.contractType == ContractType.Fixed, "Only for fixed-price contracts");
+        require(contractData.status == JobStatus.InProgress, "Contract not in progress");
+        
+        // Keep contract in progress - only mark completed when client approves
+        // contractData.status remains JobStatus.InProgress
+        // contractData.endDate will be set when client approves work
+        
+        // Create two milestones for fixed contracts to support staged payments
+        // 20% for ASI verification, 80% for client approval
+        if (contractData.milestones.length == 0) {
+            uint256 asiPayment = (contractData.totalAmount * 20) / 100; // 20%
+            uint256 clientPayment = contractData.totalAmount - asiPayment; // 80%
+            
+            // Milestone 1: ASI Verification Payment (20%)
+            Milestone memory asiMilestone = Milestone({
+                name: "ASI Verification Payment",
+                amount: asiPayment,
+                description: "Initial payment after AI verification",
+                status: MilestoneStatus.Submitted,
+                submissionDate: block.timestamp,
+                approvalDeadline: block.timestamp + 14 days,
+                asiVerified: false,
+                deliverableHash: _deliverableHash
+            });
+            contractData.milestones.push(asiMilestone);
+            
+            // Milestone 2: Client Approval Payment (80%)
+            Milestone memory clientMilestone = Milestone({
+                name: "Client Approval Payment",
+                amount: clientPayment,
+                description: "Final payment after client approval",
+                status: MilestoneStatus.Pending, // Not submitted yet
+                submissionDate: 0,
+                approvalDeadline: 0,
+                asiVerified: false,
+                deliverableHash: _deliverableHash
+            });
+            contractData.milestones.push(clientMilestone);
+        } else {
+            // Update existing milestone
+            contractData.milestones[0].status = MilestoneStatus.Submitted;
+            contractData.milestones[0].submissionDate = block.timestamp;
+            contractData.milestones[0].approvalDeadline = block.timestamp + 14 days;
+            contractData.milestones[0].deliverableHash = _deliverableHash;
+        }
+        
+        emit MilestoneSubmitted(_contractId, 0, _deliverableHash);
+    }
+
+    /**
      * @dev ASI agent verification of milestone
      */
     function verifyMilestone(
@@ -422,6 +487,27 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
         milestone.asiVerified = _approved;
         
         emit ASIVerificationCompleted(_contractId, _milestoneIndex, _approved);
+    }
+
+    /**
+     * @dev Freelancer sets ASI verification status after off-chain ASI agent approval
+     */
+    function setASIVerification(
+        uint256 _contractId,
+        uint256 _milestoneIndex
+    ) external contractExists(_contractId) nonReentrant {
+        FreelanceContract storage contractData = contracts[_contractId];
+        require(contractData.freelancer == msg.sender, "Only freelancer can set ASI verification");
+        require(_milestoneIndex < contractData.milestones.length, "Invalid milestone index");
+        
+        Milestone storage milestone = contractData.milestones[_milestoneIndex];
+        require(milestone.status == MilestoneStatus.Submitted, "Milestone not submitted");
+        require(!milestone.asiVerified, "Milestone already ASI verified");
+        
+        // Set ASI verification to true (freelancer confirms off-chain ASI approval)
+        milestone.asiVerified = true;
+        
+        emit ASIVerificationCompleted(_contractId, _milestoneIndex, true);
     }
 
     /**
@@ -464,6 +550,29 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
             milestone.status = MilestoneStatus.Approved;
             _releaseMilestonePayment(_contractId, _milestoneIndex);
         }
+    }
+
+    /**
+     * @dev Freelancer claims 20% payment after ASI verification (no deadline wait)
+     */
+    function claimASIVerifiedPayment(uint256 _contractId, uint256 _milestoneIndex) 
+        external 
+        contractExists(_contractId) 
+        nonReentrant 
+    {
+        FreelanceContract storage contractData = contracts[_contractId];
+        require(contractData.freelancer == msg.sender, "Only freelancer can claim payment");
+        require(_milestoneIndex < contractData.milestones.length, "Invalid milestone index");
+        
+        Milestone storage milestone = contractData.milestones[_milestoneIndex];
+        require(milestone.status == MilestoneStatus.Submitted, "Milestone not submitted");
+        require(milestone.asiVerified, "Milestone not verified by ASI agents");
+        
+        // Release payment immediately after ASI verification (no deadline wait)
+        milestone.status = MilestoneStatus.Approved;
+        _releaseMilestonePayment(_contractId, _milestoneIndex);
+        
+        emit MilestoneApproved(_contractId, _milestoneIndex, milestone.amount);
     }
 
     /**
@@ -638,6 +747,38 @@ contract ChainLanceCore is ReentrancyGuard, Ownable {
 
     function getTotalContracts() external view returns (uint256) {
         return _contractIds;
+    }
+
+    /**
+     * @dev Client approves final work and releases remaining payment
+     */
+    function approveFixedWork(uint256 _contractId) 
+        external 
+        contractExists(_contractId) 
+        nonReentrant 
+    {
+        FreelanceContract storage contractData = contracts[_contractId];
+        require(contractData.client == msg.sender, "Only client can approve work");
+        require(contractData.contractType == ContractType.Fixed, "Only for fixed-price contracts");
+        require(contractData.status == JobStatus.InProgress, "Contract not in progress");
+        require(contractData.milestones.length >= 2, "Fixed contract must have 2 milestones");
+        
+        // Check that first milestone (ASI payment) is approved
+        require(contractData.milestones[0].status == MilestoneStatus.Approved, "ASI payment not released yet");
+        
+        // Approve and release the second milestone (client payment - 80%)
+        Milestone storage clientMilestone = contractData.milestones[1];
+        require(clientMilestone.status == MilestoneStatus.Pending, "Client milestone already processed");
+        
+        // Mark second milestone as submitted and approved
+        clientMilestone.status = MilestoneStatus.Approved;
+        clientMilestone.submissionDate = block.timestamp;
+        clientMilestone.approvalDeadline = block.timestamp;
+        
+        // Release the final payment
+        _releaseMilestonePayment(_contractId, 1);
+        
+        emit MilestoneApproved(_contractId, 1, clientMilestone.amount);
     }
 
     // Admin functions

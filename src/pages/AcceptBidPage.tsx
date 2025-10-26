@@ -72,8 +72,8 @@ export const AcceptBidPage: React.FC = () => {
       return;
     }
 
-    // Calculate remaining escrow needed (80% of bid amount)
-    // Client already deposited 20% of job budget, now needs 80% of accepted bid
+    // Calculate remaining escrow needed (80% of job budget)
+    // Client already deposited 20% of job budget, now needs 80% of job budget
     const remainingEscrow = job.budget * 0.8;
     
     // Check if user has sufficient PYUSD balance

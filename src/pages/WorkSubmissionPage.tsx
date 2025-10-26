@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Upload, FileText, Link, Send, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useContractData } from '../contexts/ContractDataContext';
 import { useWallet } from '../contexts/WalletContext';
+import { ipfsService } from '../services/ipfsService';
 
 interface DeliverableFile {
   id: string;
@@ -10,6 +11,9 @@ interface DeliverableFile {
   type: 'file' | 'url';
   content: string;
   size?: number;
+  ipfsHash?: string;
+  ipfsUrl?: string;
+  uploading?: boolean;
 }
 
 export const WorkSubmissionPage: React.FC = () => {
@@ -75,49 +79,133 @@ export const WorkSubmissionPage: React.FC = () => {
     setDeliverables(deliverables.filter(d => d.id !== id));
   };
 
-  const handleFileUpload = (id: string, event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (id: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      // In a real implementation, you would upload to IPFS or similar
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        updateDeliverable(id, 'content', e.target?.result as string);
-        updateDeliverable(id, 'name', file.name);
-        updateDeliverable(id, 'size', file.size);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    console.log('📁 File selected for upload:', file.name, file.size);
+
+    // Set uploading state
+    updateDeliverable(id, 'uploading', true);
+    updateDeliverable(id, 'name', file.name);
+    updateDeliverable(id, 'size', file.size);
+
+    try {
+      console.log('🚀 Starting IPFS upload...');
+      const ipfsResult = await ipfsService.uploadFile(file);
+      
+      console.log('✅ IPFS upload successful:', ipfsResult);
+
+      // Update deliverable with IPFS data using atomic update
+      setDeliverables(prevDeliverables => 
+        prevDeliverables.map(d => 
+          d.id === id ? {
+            ...d,
+            content: ipfsResult.url,
+            ipfsHash: ipfsResult.hash,
+            ipfsUrl: ipfsResult.url,
+            uploading: false
+          } : d
+        )
+      );
+
+    } catch (error) {
+      console.error('❌ IPFS upload failed:', error);
+      
+      // Set error state
+      setDeliverables(prevDeliverables => 
+        prevDeliverables.map(d => 
+          d.id === id ? {
+            ...d,
+            uploading: false,
+            content: `Upload failed: ${error}`
+          } : d
+        )
+      );
+      
+      setErrorMessage(`Failed to upload ${file.name}: ${error}`);
     }
   };
 
   const validateSubmission = (): boolean => {
+    console.log('🔍 Validating submission...');
+    console.log('📋 Deliverables:', deliverables);
+    console.log('📝 Description:', description);
+
     if (deliverables.length === 0) {
+      console.log('❌ Validation failed: No deliverables');
       setErrorMessage('Please add at least one deliverable');
       return false;
     }
 
     for (const deliverable of deliverables) {
-      if (!deliverable.content.trim()) {
-        setErrorMessage(`Please provide content for ${deliverable.name}`);
+      console.log(`📄 Checking deliverable: ${deliverable.name}, content: "${deliverable.content}", uploading: ${deliverable.uploading}`);
+      
+      // Check if file is still uploading
+      if (deliverable.uploading) {
+        console.log(`❌ Validation failed: ${deliverable.name} is still uploading`);
+        setErrorMessage(`Please wait for ${deliverable.name} to finish uploading`);
+        return false;
+      }
+
+      // Check for content (IPFS URL, regular URL, or text)
+      const hasContent = deliverable.content && deliverable.content.trim() && 
+                        !deliverable.content.startsWith('Upload failed:');
+      
+      if (!hasContent) {
+        console.log(`❌ Validation failed: Empty or failed content for ${deliverable.name}`);
+        setErrorMessage(`Please provide valid content for ${deliverable.name}`);
+        return false;
+      }
+
+      // For file type, ensure we have either IPFS data or valid content
+      if (deliverable.type === 'file' && !deliverable.ipfsHash && !deliverable.content.startsWith('data:')) {
+        console.log(`❌ Validation failed: File ${deliverable.name} not properly uploaded`);
+        setErrorMessage(`Please upload the file ${deliverable.name} properly`);
         return false;
       }
     }
 
     if (!description.trim()) {
+      console.log('❌ Validation failed: Empty description');
       setErrorMessage('Please provide a work description');
       return false;
     }
 
+    console.log('✅ Validation passed!');
     return true;
   };
 
   const handleSubmit = async () => {
-    if (!validateSubmission()) return;
+    console.log('🚀 Submit button clicked!');
+    console.log('📋 Current state:', {
+      deliverables: deliverables.length,
+      description: description.length,
+      notes: notes.length,
+      contract: !!contract,
+      job: !!job,
+      submitWork: !!submitWork
+    });
 
+    // Check validation first
+    const isValid = validateSubmission();
+    console.log('✅ Validation result:', isValid);
+    if (!isValid) {
+      console.log('❌ Validation failed, stopping submission');
+      return;
+    }
+
+    console.log('🔄 Starting submission process...');
     setIsSubmitting(true);
     setSubmissionStatus('submitting');
     setErrorMessage('');
 
     try {
+      // Check if submitWork function is available
+      if (!submitWork) {
+        throw new Error('submitWork function is not available');
+      }
+
       // Prepare submission data
       const submissionData = {
         work_id: `work_${contractId}_${Date.now()}`,
@@ -126,33 +214,47 @@ export const WorkSubmissionPage: React.FC = () => {
           name: d.name,
           type: d.type,
           content: d.content,
-          size: d.size
+          url: d.ipfsUrl || d.content,
+          ipfs_hash: d.ipfsHash,
+          ipfs_url: d.ipfsUrl,
+          size: d.size,
+          file_info: {
+            ipfs_uploaded: !!(d.ipfsHash || d.ipfsUrl)
+          }
         })),
         description,
         freelancer_notes: notes,
         category: job?.category || 'general',
         client_id: contract?.client_wallet || '',
+        freelancer_address: walletAddress || '',
         submission_timestamp: new Date().toISOString()
       };
 
+      console.log('📤 Submitting data:', submissionData);
+
       // Submit work for ASI agent verification
-      if (submitWork) {
-        await submitWork(submissionData);
-      }
+      const result = await submitWork(submissionData);
+      console.log('✅ Submission successful:', result);
 
       setSubmissionStatus('success');
       
-      // Navigate back to contract detail after a delay
+      // Navigate to work submission status page to track ASI agent verification
       setTimeout(() => {
-        navigate(`/contract/${contractId}`);
-      }, 3000);
+        navigate(`/contract/${contractId}/submission-status`);
+      }, 2000);
 
     } catch (error: any) {
-      console.error('Work submission failed:', error);
+      console.error('❌ Work submission failed:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       setErrorMessage(error.message || 'Failed to submit work');
       setSubmissionStatus('error');
     } finally {
       setIsSubmitting(false);
+      console.log('🏁 Submission process completed');
     }
   };
 
@@ -198,10 +300,20 @@ export const WorkSubmissionPage: React.FC = () => {
             </div>
             <div>
               <span className="text-gray-400">Total Amount:</span>
-              <span className="text-white ml-2">${contract.total_amount}</span>
+              <span className="text-white ml-2">${job?.budget.toLocaleString()}</span>
             </div>
           </div>
         </div>
+
+        {/* Error Message Display */}
+        {errorMessage && (
+          <div className="bg-red-900 border border-red-700 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
+              <span className="text-white font-medium">{errorMessage}</span>
+            </div>
+          </div>
+        )}
 
         {/* Submission Status */}
         {submissionStatus !== 'idle' && (
@@ -296,12 +408,50 @@ export const WorkSubmissionPage: React.FC = () => {
                 </div>
 
                 {deliverable.type === 'file' ? (
-                  <input
-                    type="file"
-                    onChange={(e) => handleFileUpload(deliverable.id, e)}
-                    className="w-full text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700"
-                    disabled={isSubmitting}
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="file"
+                      onChange={(e) => handleFileUpload(deliverable.id, e)}
+                      className="w-full text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                      disabled={isSubmitting || deliverable.uploading}
+                    />
+                    
+                    {/* Upload Status */}
+                    {deliverable.uploading && (
+                      <div className="flex items-center text-blue-400 text-sm">
+                        <Clock className="w-4 h-4 mr-2 animate-spin" />
+                        Uploading to IPFS...
+                      </div>
+                    )}
+                    
+                    {deliverable.ipfsHash && (
+                      <div className="text-green-400 text-sm">
+                        <div className="flex items-center">
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Uploaded to IPFS: {deliverable.ipfsHash.substring(0, 20)}...
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          <a 
+                            href={deliverable.ipfsUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="hover:text-blue-400"
+                          >
+                            View on IPFS →
+                          </a>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {deliverable.content && deliverable.content.startsWith('Upload failed:') && (
+                      <div className="text-red-400 text-sm">
+                        <div className="flex items-center">
+                          <AlertCircle className="w-4 h-4 mr-2" />
+                          {deliverable.content}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <input
                     type="url"

@@ -7,7 +7,7 @@ import { useWallet } from '../contexts/WalletContext';
 export const ContractsPage: React.FC = () => {
   const navigate = useNavigate();
   const { walletAddress } = useWallet();
-  const { getContractsForWallet, getJob, refreshContracts, contractService } = useContractData();
+  const { getContractsForWallet, getJob, getJobDirect, refreshContracts, contractService } = useContractData();
   const [contracts, setContracts] = useState<EnhancedContract[]>([]);
   const [contractJobs, setContractJobs] = useState<{ [key: string]: EnhancedJob }>({});
   const [loading, setLoading] = useState(true);
@@ -38,12 +38,36 @@ export const ContractsPage: React.FC = () => {
 
     // Load job details for each contract
     const jobs: { [key: string]: EnhancedJob } = {};
-    contractsData.forEach(contract => {
-      const job = getJob(contract.job_id);
+    console.log(`🔍 ContractsPage: Loading job details for ${contractsData.length} contracts...`);
+    
+    for (const contract of contractsData) {
+      console.log(`📋 ContractsPage: Loading job ${contract.job_id} for contract ${contract.id}`);
+      
+      // Try synchronous method first
+      let job = getJob(contract.job_id);
+      
+      // If not found, try async method
+      if (!job) {
+        console.log(`⚠️ ContractsPage: Job ${contract.job_id} not found in cache, trying direct fetch...`);
+        try {
+          job = await getJobDirect(contract.job_id);
+          console.log(`✅ ContractsPage: Job ${contract.job_id} fetched directly:`, job);
+        } catch (error) {
+          console.error(`❌ ContractsPage: Error fetching job ${contract.job_id}:`, error);
+        }
+      } else {
+        console.log(`✅ ContractsPage: Job ${contract.job_id} found in cache:`, job);
+      }
+      
       if (job) {
         jobs[contract.job_id] = job;
+        console.log(`💰 ContractsPage: Job ${contract.job_id} budget: ${job.budget}`);
+      } else {
+        console.warn(`⚠️ ContractsPage: Could not load job ${contract.job_id}`);
       }
-    });
+    }
+    
+    console.log(`📊 ContractsPage: Loaded ${Object.keys(jobs).length} jobs:`, jobs);
     setContractJobs(jobs);
 
     setLoading(false);
@@ -203,30 +227,36 @@ export const ContractsPage: React.FC = () => {
                     </div>
                     <div className="ml-4 text-right">
                       <div className="text-2xl font-bold text-white">
-                        ${contract.total_amount.toLocaleString()}
+                        ${contractJobs[contract.job_id]?.budget?.toLocaleString() || contract.escrow_amount?.toLocaleString() || contract.total_amount.toLocaleString()}
                       </div>
                       <div className="text-sm text-gray-400 capitalize">
-                        {contract.contract_type}
+                        {contractJobs[contract.job_id]?.budget ? 'Job Budget' : 'Escrow Amount'}
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid sm:grid-cols-3 gap-4 pt-4 border-t border-gray-700">
+                  <div className="grid sm:grid-cols-4 gap-4 pt-4 border-t border-gray-700">
                     <div>
-                      <div className="text-xs text-gray-400 uppercase tracking-wide">Status</div>
+                      <div className="text-xs text-gray-400 uppercase tracking-wide">Start Date</div>
                       <div className="font-medium text-white">
                         {new Date(contract.start_date).toLocaleDateString()}
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-400 uppercase tracking-wide">Escrow Amount</div>
+                      <div className="text-xs text-gray-400 uppercase tracking-wide">Job Budget</div>
                       <div className="font-medium text-white">
-                        ${contract.escrow_amount.toLocaleString()}
+                        ${contractJobs[contract.job_id]?.budget?.toLocaleString() || contract.escrow_amount?.toLocaleString() || 'Loading...'}
                       </div>
                     </div>
                     <div>
-                      <div className="text-sm text-gray-400 mb-1">Payment Type</div>
-                      <div className="font-medium text-white capitalize">
+                      <div className="text-xs text-gray-400 uppercase tracking-wide">Freelancer Stake</div>
+                      <div className="font-medium text-white">
+                        ${contract.total_amount.toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-400 uppercase tracking-wide">Payment Type</div>
+                      <div className="font-medium text-white">
                         {contract.contract_type}
                       </div>
                     </div>
@@ -237,7 +267,7 @@ export const ContractsPage: React.FC = () => {
                       {/* Freelancer Actions */}
                       {!isClient && (
                         <button
-                          onClick={() => navigate(`/submit-work/${contract.id}`)}
+                          onClick={() => navigate(`/contract/${contract.id}/submit`)}
                           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
                         >
                           <FileText className="w-4 h-4 mr-2" />

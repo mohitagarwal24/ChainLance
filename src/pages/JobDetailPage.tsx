@@ -310,6 +310,36 @@ export const JobDetailPage: React.FC = () => {
                   <span className="font-medium text-white">{job.project_duration || 'Not specified'}</span>
                 </div>
               </div>
+
+              {/* Milestone Information for milestone contracts */}
+              {job.contract_type === 'milestone' && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-white mb-3">Project Milestones</h3>
+                  <div className="p-4 bg-gray-700 rounded-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-sm text-gray-400">Payment Structure</div>
+                      <div className="text-sm font-medium text-blue-400">Milestone-based</div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-white">30%</div>
+                        <div className="text-gray-400">Setup & Planning</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-white">50%</div>
+                        <div className="text-gray-400">Core Development</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-white">20%</div>
+                        <div className="text-gray-400">Testing & Deployment</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-gray-400">
+                      Payments are released automatically upon milestone completion and AI verification
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {isJobOwner && (
@@ -390,6 +420,27 @@ export const JobDetailPage: React.FC = () => {
                 <div className="text-sm text-gray-400 capitalize">
                   {job.contract_type} price
                 </div>
+                
+                {/* Milestone breakdown for milestone contracts */}
+                {job.contract_type === 'milestone' && (
+                  <div className="mt-3 p-3 bg-gray-700 rounded-lg">
+                    <div className="text-xs text-gray-400 mb-2">Milestone Breakdown:</div>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">Setup & Planning:</span>
+                        <span className="text-white font-medium">${(job.budget * 0.3).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">Core Development:</span>
+                        <span className="text-white font-medium">${(job.budget * 0.5).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-300">Testing & Deployment:</span>
+                        <span className="text-white font-medium">${(job.budget * 0.2).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {!isJobOwner && !userHasBid && walletAddress && (

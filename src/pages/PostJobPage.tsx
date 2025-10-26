@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ArrowLeft, Plus, X, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useContractData } from '../contexts/ContractDataContext';
 import { useWallet } from '../contexts/WalletContext';
 import { NetworkStatus } from '../components/NetworkStatus';
+import { MilestoneSetup, Milestone } from '../components/MilestoneSetup';
 
 export const PostJobPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export const PostJobPage: React.FC = () => {
     deadline: '',
     number_of_milestones: 1,
   });
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [skillInput, setSkillInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pyusdBalance, setPyusdBalance] = useState<number>(0);
@@ -61,6 +63,12 @@ export const PostJobPage: React.FC = () => {
       loadPYUSDBalance();
     }
   }, [walletAddress]);
+
+  // Memoized callback to prevent unnecessary re-renders of MilestoneSetup
+  const handleMilestonesChange = useCallback((updatedMilestones: Milestone[]) => {
+    setMilestones(updatedMilestones);
+    setFormData(prev => ({ ...prev, number_of_milestones: updatedMilestones.length }));
+  }, []);
 
   const handleAddSkill = () => {
     if (skillInput.trim() && !formData.required_skills.includes(skillInput.trim())) {
@@ -114,7 +122,7 @@ export const PostJobPage: React.FC = () => {
       alert('Job posted successfully! The escrow deposit has been locked in the smart contract.');
       // Reload balance after successful job posting
       loadPYUSDBalance();
-      navigate('/my-jobs');
+      navigate('/jobs');
     } catch (error: any) {
       console.error('Error posting job:', error);
       if (error.message?.includes('insufficient funds')) {
@@ -423,18 +431,13 @@ export const PostJobPage: React.FC = () => {
                   </div>
                 </div>
 
-                {formData.contract_type === 'milestone' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Number of Milestones
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={formData.number_of_milestones}
-                      onChange={(e) => setFormData({ ...formData, number_of_milestones: parseInt(e.target.value) })}
-                      className="input w-full"
+                {formData.contract_type === 'milestone' && formData.budget && (
+                  <div className="mt-6">
+                    <MilestoneSetup
+                      totalBudget={parseFloat(formData.budget)}
+                      initialMilestones={milestones}
+                      onMilestonesChange={handleMilestonesChange}
+                      readOnly={false}
                     />
                   </div>
                 )}

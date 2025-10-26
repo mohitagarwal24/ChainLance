@@ -84,6 +84,7 @@ interface ContractDataContextType {
   // Contract methods
   getContractsForWallet: (walletAddress: string, status?: string) => EnhancedContract[];
   getContract: (contractId: string) => EnhancedContract | null;
+  updateContractMilestones: (contractId: string, milestones: any[]) => void;
   refreshContracts: () => Promise<void>;
 
   // Token operations
@@ -545,6 +546,16 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return contracts.find(contract => contract.id.toString() === contractId) || null;
   };
 
+  const updateContractMilestones = (contractId: string, milestones: any[]) => {
+    setContracts(prevContracts => 
+      prevContracts.map(contract => 
+        contract.id.toString() === contractId 
+          ? { ...contract, milestones }
+          : contract
+      )
+    );
+  };
+
   // Token operations
   const getPYUSDBalance = async (): Promise<number> => {
     if (!contractService || !walletAddress) return 0;
@@ -628,6 +639,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const convertContractToEnhanced = (contract: ContractFreelanceContract): EnhancedContract => {
     const contractTypeMap = ['fixed', 'hourly', 'milestone'] as const;
+    // Contract enum: ContractStatus { Pending, Active, Completed, Cancelled, Disputed } = [0, 1, 2, 3, 4]
     const statusMap = ['pending', 'active', 'completed', 'cancelled', 'disputed'] as const;
 
     return {
@@ -688,6 +700,7 @@ export const ContractDataProvider: React.FC<{ children: React.ReactNode }> = ({ 
         refreshBids,
         getContractsForWallet,
         getContract,
+        updateContractMilestones,
         refreshContracts,
         getPYUSDBalance,
         requestPYUSDFromFaucet,

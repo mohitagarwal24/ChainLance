@@ -12,6 +12,8 @@ import { ContractsPage } from './pages/ContractsPage';
 import { ContractDetailPage } from './pages/ContractDetailPage';
 import { AcceptBidPage } from './pages/AcceptBidPage';
 import { WorkSubmissionPage } from './pages/WorkSubmissionPage';
+import { WorkSubmissionStatusPage } from './pages/WorkSubmissionStatusPage';
+import { MilestoneManagementPage } from './pages/MilestoneManagementPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { MessagesPage } from './pages/MessagesPage';
 import { NotificationsPage } from './pages/NotificationsPage';
@@ -34,7 +36,9 @@ function App() {
                   <Route path="/contracts" element={<ContractsPage />} />
                   <Route path="/contract/:contractId" element={<ContractDetailPage />} />
                   <Route path="/accept-bid/:jobId/:bidId" element={<AcceptBidPage />} />
-                  <Route path="/submit-work/:contractId" element={<WorkSubmissionPage />} />
+                  <Route path="/contract/:contractId/submit" element={<WorkSubmissionPage />} />
+                  <Route path="/contract/:contractId/submission-status" element={<WorkSubmissionStatusPage />} />
+                  <Route path="/contract/:contractId/milestones" element={<MilestoneManagementPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/messages" element={<MessagesPage />} />
                   <Route path="/notifications" element={<NotificationsPage />} />

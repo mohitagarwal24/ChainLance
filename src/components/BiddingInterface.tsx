@@ -48,7 +48,7 @@ export const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
     }
 
     const proposedAmount = parseFloat(bidData.proposed_amount);
-    const stakeAmount = proposedAmount * 0.1; // 10% stake
+    const stakeAmount = proposedAmount
 
     if (pyusdBalance < stakeAmount) {
       alert(`Insufficient PYUSD balance. You need ${stakeAmount.toFixed(2)} PYUSD for the stake (10% of bid amount).`);
@@ -114,7 +114,7 @@ export const BiddingInterface: React.FC<BiddingInterfaceProps> = ({
   };
 
   const proposedAmount = parseFloat(bidData.proposed_amount) || 0;
-  const stakeAmount = proposedAmount * 0.1;
+  const stakeAmount = proposedAmount;
 
   return (
     <div className={`card p-6 ${className}`}>
